@@ -1,0 +1,11 @@
+node_modules/
+.mastra/
+dist/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+local_cache/
+.fastembed/
+.env
+.DS_Store

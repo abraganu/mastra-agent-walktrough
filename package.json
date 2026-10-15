@@ -1,0 +1,38 @@
+{
+  "name": "mastra-playground",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local playground for building AI agents with Mastra (https://mastra.ai), powered by the NaN (nan.builders) OpenAI-compatible gateway",
+  "engines": {
+    "node": ">=20"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "onnxruntime-node"
+    ]
+  },
+  "scripts": {
+    "dev": "mastra dev",
+    "build": "mastra build",
+    "start": "mastra start",
+    "typecheck": "tsc --noEmit",
+    "rag:example": "tsx scripts/rag-example.ts",
+    "mcp:example": "tsx scripts/mcp-server-example.ts"
+  },
+  "dependencies": {
+    "@mastra/core": "^1.78.0",
+    "@mastra/fastembed": "^1.3.3",
+    "@mastra/libsql": "^1.26.1",
+    "@mastra/mcp": "^2.4.0",
+    "@mastra/memory": "^1.37.1",
+    "@mastra/rag": "^2.6.7",
+    "ai": "^7.0.140",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "mastra": "^1.34.2",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3"
+  }
+}
