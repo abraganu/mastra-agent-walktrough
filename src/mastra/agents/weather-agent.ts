@@ -28,6 +28,16 @@ export const weatherAgent = new Agent({
   model: 'openai/deepseek-v4-flash',
   tools: { weatherTool },
 
+  // Leaving `editor` unset gives Studio's Editor the most to work with: stored
+  // overrides may replace these instructions and edit the descriptions of the
+  // tools above (membership stays in code, and model/memory always stay in code).
+  // This agent can still override `editor` to lock things down, e.g.:
+  //   editor: { tools: { description: true } } // instructions locked in code
+  //   editor: false                            // fully read-only in Studio
+  // Not to be confused with the `editor` field's `instructions: true` form,
+  // which hands instructions *entirely* to Studio and forbids defining them here.
+  // Docs: https://mastra.ai/docs/studio/editor#decide-what-collaborators-can-edit
+
   // Conversation history persisted via the Mastra instance storage.
   // Docs: https://mastra.ai/en/docs/memory/overview
   memory: new Memory({
