@@ -4,9 +4,9 @@ import { z } from 'zod';
 // Example tool: live weather lookup via wttr.in (free, no API key).
 // This is where you'd call any real API. Tools MUST be created with
 // createTool() — plain objects silently fail to execute.
-// Docs: https://mastra.ai/en/docs/tools/creating-tools
+// Docs: https://mastra.ai/docs/agents/tools
 export const weatherTool = createTool({
-  id: 'get-weather',
+  id: 'l01-get-weather',
   description: 'Get current weather for a location',
   inputSchema: z.object({
     location: z.string().describe('City name, e.g. "Madrid" or "Austin, TX"'),

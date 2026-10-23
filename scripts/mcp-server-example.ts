@@ -5,10 +5,10 @@
  * Point any MCP client at it, e.g. in a client config:
  *   { "command": "pnpm", "args": ["--dir", "/absolute/path/to/mastra-playground", "mcp:example"] }
  *
- * Docs: https://mastra.ai/en/docs/mcp/overview
+ * Docs: https://mastra.ai/docs/connections/mcp
  */
 import { MCPServer } from '@mastra/mcp';
-import { weatherTool } from '../src/mastra/tools/weather-tool';
+import { weatherTool } from '../src/mastra/lessons/01-agent-loop/weather-tool';
 
 const server = new MCPServer({
   name: 'mastra-playground-mcp',

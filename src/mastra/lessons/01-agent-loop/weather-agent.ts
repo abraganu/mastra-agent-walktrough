@@ -1,18 +1,17 @@
 import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
-import { weatherTool } from '../tools/weather-tool';
+import { models } from '../../shared/models';
+import { weatherTool } from './weather-tool';
 
-// The model string uses Mastra's model router format "provider/model".
-// With OPENAI_BASE_URL + OPENAI_API_KEY set in .env, every "openai/*"
-// model is routed to the NaN gateway (nan.builders).
+// Lesson 01 subject: the agent execution loop, observed through a trace.
+// Guide: docs/learn/01-agent-loop/README.md
 //
-// Good agent models on NaN (standard function calling):
-//   openai/deepseek-v4-flash   3B tokens/mo · 1M ctx  (default)
-//   openai/glm5.3-flash        2B tokens/mo · 1M ctx
-//   openai/mimo-v2.6-flash     1B tokens/mo · omnimodal
+// `models.default` is a model instance from shared/models.ts, not a router
+// string — see that file for why.
+// Docs: https://mastra.ai/docs/agents/overview
 export const weatherAgent = new Agent({
-  id: 'weather-agent',
-  name: 'Weather Agent',
+  id: 'l01-weather-agent',
+  name: 'L01 · Weather Agent',
   instructions: `
       You are a helpful weather assistant that provides accurate weather information.
 
@@ -25,7 +24,7 @@ export const weatherAgent = new Agent({
 
       Use the weatherTool to fetch current weather data.
 `,
-  model: 'openai/deepseek-v4-flash',
+  model: models.default,
   tools: { weatherTool },
 
   // Leaving `editor` unset gives Studio's Editor the most to work with: stored
@@ -39,7 +38,7 @@ export const weatherAgent = new Agent({
   // Docs: https://mastra.ai/docs/studio/editor#decide-what-collaborators-can-edit
 
   // Conversation history persisted via the Mastra instance storage.
-  // Docs: https://mastra.ai/en/docs/memory/overview
+  // Docs: https://mastra.ai/docs/memory/overview
   memory: new Memory({
     options: {
       lastMessages: 20,
