@@ -90,7 +90,9 @@ That third answer is the lesson's baseline: **history is thread-scoped even when
 
 Change one thing, then ask the same question again. Keep thread A, and use a **new thread C** on the same resource for steps 2 and 3.
 
-**1. Shrink the window.** In `memory-agent.ts`, set `lastMessages: 2`. Re-run `pnpm lesson 04`: thread A's second turn no longer knows the name, because the answer was two turns back and the window is two messages. Nothing was deleted — the panel still shows everything. This is the difference between *forgetting* and *not receiving*.
+**1. Shrink the window.** In `memory-agent.ts`, set `lastMessages: 2`, then in Studio send a few *unrelated* turns before the question that matters: *"weather in Madrid?"* → *"weather in Paris?"* → *"what's my name?"*. It no longer knows, and the panel still shows the introduction. That is the difference between *forgetting* and *not receiving*.
+
+One subtlety this demo hides: shrinking the window does **not** make the very next turn forget. After turn 1 the window already holds both of that turn's messages — and the reply (`Got it, Abraham…`) carries the name too — so the fact only disappears once the window slides past *every* message that mentioned it. A fact survives as long as any single message inside the window echoes it. That is also why long threads feel like they remember more than `lastMessages` suggests.
 
 **2. Add working memory.** Back to `lastMessages: 20`, and add to `new Memory({ ... })`:
 
