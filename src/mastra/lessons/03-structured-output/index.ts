@@ -30,11 +30,14 @@ export const lesson: Lesson = {
         memory: { resource: 'l03-demo', thread: 'l03-demo' },
         structuredOutput: {
           schema: reportSchema,
-          // NaN is a custom OpenAI-compatible gateway with no capability
-          // data, so 'auto' picks prompt injection over the provider's
-          // native response_format. The result is validated against the
-          // schema either way.
-          jsonPromptInjection: 'auto',
+          // The NaN gateway serves native json_schema response_format on
+          // deepseek-v4-flash only for tool-less, non-streamed requests —
+          // this call has tools, so native mode 400s. 'system' injects the
+          // schema instructions into the system message instead: no
+          // response_format is sent, tools keep working, and the result is
+          // still validated against the schema. ('auto' resolves to native
+          // here — try it and read the gateway's error.)
+          jsonPromptInjection: 'system',
         },
       },
     );

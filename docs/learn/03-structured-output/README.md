@@ -43,7 +43,7 @@ sequenceDiagram
 The parts of `structuredOutput` and who reads each one:
 
 - `schema` — the zod shape the final message must satisfy. The `.describe()` strings are prompt material for the fields, exactly like tool input schemas in lesson 02. At the call site, `z.infer<typeof schema>` is the TypeScript type — one definition, two layers.
-- `jsonPromptInjection` — how the schema reaches the model. Default is the provider's native `response_format`; `'auto'` picks prompt injection when Mastra has no capability data for the model (NaN's case); `'inline'` or `true` forces injection. The validated result is identical either way — what differs is what you see in the trace.
+- `jsonPromptInjection` — how the schema reaches the model. Omitted or `false` uses the provider's native `response_format` — which the NaN gateway *rejects* on `deepseek-v4-flash` for any request that has tools (it serves `json_schema` only on tool-less, non-streamed calls). `'auto'` consults Mastra's capability data, which marks the model as structured-output-capable — so `'auto'` resolved to native and got the 400. `'system'` (the starting demo) and `'inline'` inject the schema as text into the system message or the latest user message instead: no `response_format` is sent, tools keep working, and the result is validated against the schema either way. On a custom gateway, pin the mode you have verified — capability data and gateway serving policy are different things.
 - `response.object` — the validated, typed result. `response.text` still exists; with structured output it is usually the raw JSON or empty.
 - `errorStrategy` — `'strict'` (default) throws when the model's output fails the schema. `{ errorStrategy: 'fallback', fallbackValue }` substitutes the fallback and sets `response.usedFallbackValue: true`, so you can tell a substituted object from a real answer.
 
@@ -74,7 +74,7 @@ Same loop as lesson 02, but the printed answer is `response.object` — a valida
 `pnpm dev`, then **Agents → L03 · Report Agent**, chat: *What's the weather in Madrid? Reply as a structured report.* Open the run in **Observability**.
 
 - Same span shape as lesson 02: LLM call → tool call → LLM call. Structured output adds no spans; it rides in the model calls.
-- With `jsonPromptInjection: 'auto'`, find the injected schema instructions in the final LLM call's context — the schema reached the model as text. Then flip `'auto'` to `false` and re-run: if the NaN gateway accepts native `response_format`, the request changes and the instructions disappear. Note which mode your gateway actually got — that is capability data you now know.
+- With `jsonPromptInjection: 'system'`, find the injected schema instructions in the LLM calls' system message — the schema reached the model as text, with no `response_format` in the request. Then flip `'system'` to `'auto'` and re-run: the gateway rejects the run with a 400 whose message spells out its serving policy (`json_schema` only on tool-less, non-streamed requests for this model). Read it — that error is the gateway telling you its constraints. Set `'system'` back.
 - The final LLM span's output is JSON, not prose. That is the only visible difference from lesson 02's trace.
 
 ## Exercise — confidence, defaults, and a cutoff
@@ -102,7 +102,7 @@ The tool's return string has no pressure. Ask for Madrid and watch one of two th
 ```ts
 structuredOutput: {
   schema: reportSchema,
-  jsonPromptInjection: 'auto',
+  jsonPromptInjection: 'system',
   errorStrategy: 'fallback',
   fallbackValue: {
     location: 'unknown',
@@ -122,7 +122,7 @@ Re-run and check `response.usedFallbackValue` — it is `true`, which is how you
 defaultOptions: {
   structuredOutput: {
     schema: reportSchema,
-    jsonPromptInjection: 'auto',
+    jsonPromptInjection: 'system',
   },
 },
 ```
@@ -159,6 +159,17 @@ console.log(JSON.stringify(await stream.object, null, 2));
 
 No `structuredOutput` needed in the call — exercise 3's default applies to `stream()` too. Compare with walkthrough A: same object, different arrival order. Text chunks still stream; the object lands at the end. Swap the code back to `generate` when done.
 
+**Going further — the structuring-model workaround.** The gateway's constraint has a documented escape hatch: pass `model` to `structuredOutput`, and Mastra runs a second, separate structuring pass — the main loop keeps its tools and prose, then a tool-less call (where the gateway *does* allow `json_schema`) converts the answer:
+
+```ts
+structuredOutput: {
+  schema: reportSchema,
+  model: models.default, // import { models } from '../../shared/models'
+},
+```
+
+Predict the trace first: the lesson-02 loop unchanged, plus one extra LLM call doing the structuring. Then check. If the gateway still refuses — it only serves `json_schema` on non-streamed requests, and you cannot control how Mastra streams that internal call — you have found the edge of its serving policy; note it and stay on prompt injection. The gateway error also suggests `qwen3.6` or `gemma4`, which accept schema-constrained output in more request shapes, but `shared/models.ts` warns that qwen/gemma chat models use XML-style tool calling — read that file before switching this lesson to them.
+
 ## Checkpoint
 
 Run these yourself; nobody can verify a trace for you.
@@ -168,7 +179,7 @@ Run these yourself; nobody can verify a trace for you.
 - [ ] You saw a validation failure handled two ways: strict throw, and fallback with `usedFallbackValue: true`.
 - [ ] The schema lives in `defaultOptions` and both `generate()` and `stream()` return typed data without per-call config.
 - [ ] You cut the loop with `maxSteps: 1` and can describe what the user sees.
-- [ ] You know where the schema reached the model in the trace, for both injection modes.
+- [ ] You can point at where the schema reached the model in the trace, and you know which requests the gateway refuses to serve natively.
 
 ## Notes
 
