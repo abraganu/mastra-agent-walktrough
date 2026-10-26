@@ -1,7 +1,7 @@
 ---
 lesson: 1
 subject: agent-loop
-status: in-progress
+status: todo
 prereqs: []
 primitives: [Agent, LibSQLStore, MastraEditor, Memory]
 code: src/mastra/lessons/01-agent-loop
