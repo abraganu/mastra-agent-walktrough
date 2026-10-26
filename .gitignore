@@ -5,6 +5,8 @@ dist/
 *.db-journal
 *.db-wal
 *.db-shm
+*.duckdb
+*.duckdb.wal
 local_cache/
 .fastembed/
 .env

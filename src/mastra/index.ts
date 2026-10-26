@@ -1,4 +1,5 @@
 import { Mastra } from '@mastra/core';
+import { MastraStorageExporter, Observability } from '@mastra/observability';
 import { lessons } from './lessons';
 import { activeLessons, mergeLessons } from './lessons/registry';
 import { editor } from './shared/editor';
@@ -15,12 +16,26 @@ import { storage } from './shared/storage';
 export const mastra = new Mastra({
   ...mergeLessons(activeLessons(lessons)),
 
-  // Local file-backed storage (LibSQL/SQLite). Powers memory persistence,
-  // workflow state, evals, and traces in Studio.
+  // Local file-backed storage (LibSQL/SQLite) for memory, workflow state, and
+  // evals; its observability domain (traces, logs, metrics) lives in DuckDB.
   storage,
 
   // Editor = a CMS for agents: change instructions and tools from Studio
   // without touching code, save a draft, test it, then publish.
   // Docs: https://mastra.ai/docs/studio/editor
   editor,
+
+  // Explicit observability: without it, the default tracer does not persist
+  // spans when storage is a composite whose observability domain is separate
+  // (DuckDB here). MastraStorageExporter writes spans, logs, and metrics to
+  // the storage's observability domain, which is what Studio reads.
+  // Docs: https://mastra.ai/docs/studio/observability
+  observability: new Observability({
+    configs: {
+      default: {
+        serviceName: 'mastra-playground',
+        exporters: [new MastraStorageExporter()],
+      },
+    },
+  }),
 });
