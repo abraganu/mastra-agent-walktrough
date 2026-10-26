@@ -4,6 +4,7 @@ import { lessons } from './lessons';
 import { activeLessons, mergeLessons } from './lessons/registry';
 import { editor } from './shared/editor';
 import { storage } from './shared/storage';
+import { vector } from './shared/vector';
 
 // Central Mastra entry point. Everything registered here shows up in Studio.
 //
@@ -19,6 +20,10 @@ export const mastra = new Mastra({
   // Local file-backed storage (LibSQL/SQLite) for memory, workflow state, and
   // evals; its observability domain (traces, logs, metrics) lives in DuckDB.
   storage,
+
+  // Vector stores for search by meaning: semantic recall (lesson 04) and RAG
+  // indexes (lesson 07). Registered here so lessons reuse one store.
+  vectors: { default: vector },
 
   // Editor = a CMS for agents: change instructions and tools from Studio
   // without touching code, save a draft, test it, then publish.
