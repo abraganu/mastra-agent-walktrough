@@ -44,7 +44,7 @@ The parts of `structuredOutput` and who reads each one:
 
 - `schema` — the zod shape the final message must satisfy. The `.describe()` strings are prompt material for the fields, exactly like tool input schemas in lesson 02. At the call site, `z.infer<typeof schema>` is the TypeScript type — one definition, two layers.
 - `jsonPromptInjection` — how the schema reaches the model. Omitted or `false` uses the provider's native `response_format` — which the NaN gateway *rejects* on `deepseek-v4-flash` for any request that has tools (it serves `json_schema` only on tool-less, non-streamed calls). `'auto'` consults Mastra's capability data, which marks the model as structured-output-capable — so `'auto'` resolved to native and got the 400. `'system'` (the starting demo) and `'inline'` inject the schema as text into the system message or the latest user message instead: no `response_format` is sent, tools keep working, and the result is validated against the schema either way. On a custom gateway, pin the mode you have verified — capability data and gateway serving policy are different things.
-- `response.object` — the validated, typed result. `response.text` still exists; with structured output it is usually the raw JSON or empty.
+- `response.object` — the validated, typed result. `response.text` still exists; under prompt injection it is the raw model output — a prose preamble glued to the JSON (`I'll fetch the current weather…{…}`). Never parse `text` yourself; `object` is the contract.
 - `errorStrategy` — `'strict'` (default) throws when the model's output fails the schema. `{ errorStrategy: 'fallback', fallbackValue }` substitutes the fallback and sets `response.usedFallbackValue: true`, so you can tell a substituted object from a real answer.
 
 Two things worth noticing before you run anything:
@@ -67,7 +67,7 @@ Read top to bottom:
 pnpm lesson 03
 ```
 
-Same loop as lesson 02, but the printed answer is `response.object` — a validated object. Two checks before moving on: the object has exactly the three schema fields, and at the call site `response.object` is *typed* — hover it in `index.ts` and confirm TypeScript knows the shape without a cast.
+Same loop as lesson 02, but the printed answer is `response.object` — a validated object. Three checks before moving on: the object has exactly the three schema fields; at the call site `response.object` is *typed* — hover it in `index.ts` and confirm TypeScript knows the shape without a cast; and `response.text` looks messy — a prose preamble glued to the JSON. That mess is the raw output under prompt injection, and it is exactly why `object`, not `text`, is what your application consumes.
 
 ## Walkthrough B — the trace
 
@@ -75,7 +75,7 @@ Same loop as lesson 02, but the printed answer is `response.object` — a valida
 
 - Same span shape as lesson 02: LLM call → tool call → LLM call. Structured output adds no spans; it rides in the model calls.
 - With `jsonPromptInjection: 'system'`, find the injected schema instructions in the LLM calls' system message — the schema reached the model as text, with no `response_format` in the request. Then flip `'system'` to `'auto'` and re-run: the gateway rejects the run with a 400 whose message spells out its serving policy (`json_schema` only on tool-less, non-streamed requests for this model). Read it — that error is the gateway telling you its constraints. Set `'system'` back.
-- The final LLM span's output is JSON, not prose. That is the only visible difference from lesson 02's trace.
+- The final LLM span's output ends in the schema's JSON, not plain prose. That is the visible difference from lesson 02's trace.
 
 ## Exercise — confidence, defaults, and a cutoff
 
