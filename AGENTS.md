@@ -10,6 +10,7 @@ Instructions for coding agents working in this repo. The human-facing overview i
 - TypeScript is pinned to v6 (the Mastra CLI's tooling doesn't support v7 yet). Do not upgrade it.
 - Do not commit or push unless explicitly asked.
 - There is no test framework and no linter, by design. Validation is `pnpm typecheck` (runs `tsc --noEmit` + `lessons:check`). Do not add Vitest, ESLint, Prettier, etc. unless asked.
+- Local state files (SQLite, DuckDB) are addressed **absolutely**, through `rootPath()` in `src/mastra/shared/local-paths.ts`. `mastra dev` runs its bundle with `src/mastra/public` as the working directory, so a relative `file:./…` path gives Studio and `pnpm lesson` two different databases — an index you ingest, then cannot see.
 
 ## What this repo is
 

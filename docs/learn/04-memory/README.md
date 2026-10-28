@@ -112,15 +112,15 @@ options: {
 
 Tell it your name and unit in thread A, then ask the same question in **thread C**. Now it knows — working memory is resource-scoped, so it crossed threads. In the trace, the profile arrives as a **system message**, not a conversation message. Then say *"actually, use Fahrenheit"* — the template updates in place, and later turns see the new version.
 
-**3. Add semantic recall.** This needs the shared vector store and an embedder that runs locally:
+**3. Add semantic recall.** This needs the shared vector store and an embedder:
 
 ```ts
+import { models } from '../../shared/models';
 import { vector } from '../../shared/vector';
-import { fastembed } from '@mastra/fastembed';
 
 // in new Memory({ ... })
 vector,
-embedder: fastembed,
+embedder: models.embedding,
 options: {
   lastMessages: 2, // deliberately too small, so old facts scroll out
   semanticRecall: {
@@ -131,7 +131,7 @@ options: {
 },
 ```
 
-Note what is *not* here: no index creation, no dimension. `Memory` creates the index on first use (it probes the embedder's dimension once). `fastembed` downloads ~30 MB the first time; `models.embedding` from `shared/models.ts` also typechecks if you would rather use NaN's embedding API.
+Note what is *not* here: no index creation, no dimension. `Memory` creates the index on first use (it probes the embedder's dimension once). `models.embedding` is the same embedder lesson 07 builds its RAG index with — one embedding model for the whole repo, because vectors from two models are not comparable.
 
 Now build a thread where the fact you need early is *outside* the two-message window: introduce your unit, talk about Madrid's weather, then ask *"which unit did I ask for?"*. Without recall, step 1 proved it fails. With recall, the early message comes back by meaning, even though it is not in the window — and because `scope` is `resource`, it can also come from *another* thread. Open the trace: recall hits appear as messages before your new one.
 

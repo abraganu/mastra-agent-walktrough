@@ -8,6 +8,5 @@ dist/
 *.duckdb
 *.duckdb.wal
 local_cache/
-.fastembed/
 .env
 .DS_Store

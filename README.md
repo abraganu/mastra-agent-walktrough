@@ -33,8 +33,7 @@ The repo is organised as a curriculum: one lesson = one subject = one slug. Star
 | `pnpm lessons:check` | Verify lesson invariants (mirrored folders, front-matter, imports) |
 | `pnpm build` | Production build (Hono server in `.mastra/output`) |
 | `pnpm start` | Run the production build |
-| `pnpm rag:example` | Run the RAG pipeline demo (local fastembed embeddings) |
-| `pnpm mcp:example` | Run the MCP stdio server demo |
+| `pnpm mcp:example` | Run the MCP stdio server demo (lesson 08's baseline) |
 
 `MASTRA_LESSONS=01,04 pnpm dev` mounts only some lessons.
 
@@ -73,7 +72,6 @@ src/mastra/
 scripts/
   lesson.ts                 ← pnpm lesson / pnpm lessons
   check-lessons.ts          ← pnpm lessons:check
-  rag-example.ts            ← chunk → embed (local) → store → query
   mcp-server-example.ts     ← expose tools as an MCP server
 ```
 
@@ -95,13 +93,13 @@ Why not the router string `openai/<model>`? Mastra's router sends `openai/*` to 
 | `glm5.3-flash` | 2B tok/mo | function calling · 1M ctx · MIT |
 | `mimo-v2.6-flash` | 1B tok/mo | function calling · omnimodal |
 | `glm5.3` | premium tier | needs a premium key |
-| `qwen3-embedding` | — | embeddings (4096 dims) for RAG via API |
+| `qwen3-embedding` | — | embeddings (4096 dims): `models.embedding`, used by lessons 04 and 07 |
 
 ⚠️ qwen*/gemma* chat models use XML-style tool calling — avoid them for agents with tools.
 
 ## Notes
 
-- **Storage**: `mastra-playground.db` (LibSQL/SQLite) holds memory, traces, workflow state. Delete it to reset. `rag-demo.db` holds the RAG demo vectors.
-- **Fastembed**: first `rag:example` run downloads the embedding model (~30 MB) locally; embeddings run on your CPU with no API usage.
+- **Storage**: `mastra-playground.db` (LibSQL/SQLite) and `mastra-observability.duckdb` sit at the repo root and hold memory, vectors, workflow state, and traces. Both are addressed by absolute path (`src/mastra/shared/local-paths.ts`) so the dev server and the lesson scripts open the same files — delete them to reset everything.
+- **One embedder**: `models.embedding` (NaN's `qwen3-embedding`, 4096 dims) is the only embedding model in the repo, used by semantic recall and by lesson 07's index. Vectors from two different models are not comparable, so an index built with one cannot be queried with another.
 - **TypeScript**: pinned to v6 (the Mastra CLI's tooling doesn't support v7 yet). Do not upgrade `typescript` past 6 for now.
 - **Docs**: https://mastra.ai/en/docs — the model catalog is at https://mastra.ai/models
