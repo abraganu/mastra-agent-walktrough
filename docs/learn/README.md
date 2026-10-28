@@ -28,7 +28,7 @@ pnpm typecheck            # tsc + lessons:check
 | 04 | `04-memory` | Keep context across turns, threads, and users | `Memory`, threads, working memory |
 | 05 | `05-processors` | Rewrite or block input and output around the model call | processors, guardrails |
 | 06 | `06-workflows` | Put agents inside deterministic, resumable processes | `createStep`, `createWorkflow`, `branch`, `suspend`, `timeTravel` |
-| 07 | `07-rag` | Answer from your own documents | `MDocument`, embeddings, `LibSQLVector` |
+| 07 | `07-rag` | Answer from your own documents | `MDocument`, `embedMany`, `LibSQLVector`, reranking |
 | 08 | `08-mcp` | Share tools with other agents, and consume theirs | `MCPServer`, `MCPClient` |
 | 09 | `09-evals` | Measure whether a change made the agent better | scorers, datasets |
 | 10 | `10-multi-agent` | Split one big agent into specialists + a supervisor | subagents, delegation |
