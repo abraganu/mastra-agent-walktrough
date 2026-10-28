@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Local state (SQLite, DuckDB) lives at the playground root, addressed
 // absolutely.
@@ -13,9 +14,10 @@ import { dirname, join } from 'node:path';
 // hazard: `.mastra/output/preflight-local-paths.json` records
 // "LibSQL/SQLite file path relative to the build host".
 //
-// The anchor below is the entry file, not the cwd. Both `.mastra/output/*.mjs`
-// and `scripts/*.ts` live inside the repo, so walking up to the directory that
-// contains `src/mastra` finds the root from either one.
+// Both the module URL and Mastra's environment value are search anchors, not
+// necessarily the checkout root. In particular, the dev CLI sets
+// MASTRA_PROJECT_ROOT to `.mastra`, while `mastra start` uses the checkout.
+// Walk upward to the same marker from either anchor, independently of cwd.
 
 const ROOT_MARKER = join('src', 'mastra');
 
@@ -24,12 +26,14 @@ function findRoot(start: string): string {
   for (;;) {
     if (existsSync(join(current, ROOT_MARKER))) return current;
     const parent = dirname(current);
-    if (parent === current) return process.cwd(); // no marker found: fall back
+    if (parent === current) throw new Error('Cannot locate project root; set MASTRA_PROJECT_ROOT to the checkout path.');
     current = parent;
   }
 }
 
-const root = findRoot(dirname(process.argv[1] ?? join(process.cwd(), 'index.js')));
+const root = findRoot(process.env.MASTRA_PROJECT_ROOT?.trim()
+  ? resolve(process.env.MASTRA_PROJECT_ROOT.trim())
+  : dirname(fileURLToPath(import.meta.url)));
 
 /** Absolute path to a file at the playground root, e.g. `rootPath('mastra-playground.db')`. */
 export function rootPath(file: string): string {

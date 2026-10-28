@@ -14,16 +14,24 @@ import { rootPath } from './local-paths';
 // ./local-paths.ts.
 // Docs: https://mastra.ai/docs/storage
 //       https://mastra.ai/docs/studio/observability
-export const storage = new MastraCompositeStore({
+export const observabilityStorage = new DuckDBStore({
+  id: 'mastra-playground-storage-observability',
+  path: rootPath('mastra-observability.duckdb'),
+});
+
+class PlaygroundStore extends MastraCompositeStore {
+  override async close(): Promise<void> {
+    try { await super.close(); } finally { await observabilityStorage.close(); }
+  }
+}
+
+export const storage = new PlaygroundStore({
   id: 'mastra-playground-storage',
   default: new LibSQLStore({
     id: 'mastra-playground-storage-libsql',
     url: `file:${rootPath('mastra-playground.db')}`,
   }),
   domains: {
-    observability: new DuckDBStore({
-      id: 'mastra-playground-storage-observability',
-      path: rootPath('mastra-observability.duckdb'),
-    }).observability,
+    observability: observabilityStorage.observability,
   },
 });

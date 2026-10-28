@@ -1,31 +1,17 @@
-import { lesson as lesson01 } from './01-agent-loop';
-import { lesson as lesson02 } from './02-tools';
-import { lesson as lesson03 } from './03-structured-output';
-import { lesson as lesson04 } from './04-memory';
-import { lesson as lesson05 } from './05-processors';
-import { lesson as lesson06 } from './06-workflows';
-import { lesson as lesson07 } from './07-rag';
-import { lesson as lesson08 } from './08-mcp';
-import { lesson as lesson09 } from './09-evals';
-import { lesson as lesson10 } from './10-multi-agent';
-import { lesson as lesson11 } from './11-server-client';
-import { lesson as lesson12 } from './12-ops';
 import type { Lesson } from './registry';
 
-// Curriculum order = numeric prefix order. A lesson appears here once, and its
-// own folder declares every primitive it registers.
-// `pnpm lessons:check` fails if a folder is missing from this list.
-export const lessons: Lesson[] = [
-  lesson01,
-  lesson02,
-  lesson03,
-  lesson04,
-  lesson05,
-  lesson06,
-  lesson07,
-  lesson08,
-  lesson09,
-  lesson10,
-  lesson11,
-  lesson12,
+// Explicit lazy loaders keep unrelated lesson implementations out of a selected run.
+export const lessons = [
+  { id: '01-agent-loop', number: 1, subject: 'agent-loop', load: async (): Promise<Lesson> => (await import('./01-agent-loop')).lesson },
+  { id: '02-tools', number: 2, subject: 'tools', load: async (): Promise<Lesson> => (await import('./02-tools')).lesson },
+  { id: '03-structured-output', number: 3, subject: 'structured-output', load: async (): Promise<Lesson> => (await import('./03-structured-output')).lesson },
+  { id: '04-memory', number: 4, subject: 'memory', load: async (): Promise<Lesson> => (await import('./04-memory')).lesson },
+  { id: '05-processors', number: 5, subject: 'processors', load: async (): Promise<Lesson> => (await import('./05-processors')).lesson },
+  { id: '06-workflows', number: 6, subject: 'workflows', load: async (): Promise<Lesson> => (await import('./06-workflows')).lesson },
+  { id: '07-rag', number: 7, subject: 'rag', load: async (): Promise<Lesson> => (await import('./07-rag')).lesson },
+  { id: '08-mcp', number: 8, subject: 'mcp', load: async (): Promise<Lesson> => (await import('./08-mcp')).lesson },
+  { id: '09-evals', number: 9, subject: 'evals', load: async (): Promise<Lesson> => (await import('./09-evals')).lesson },
+  { id: '10-multi-agent', number: 10, subject: 'multi-agent', load: async (): Promise<Lesson> => (await import('./10-multi-agent')).lesson },
+  { id: '11-server-client', number: 11, subject: 'server-client', load: async (): Promise<Lesson> => (await import('./11-server-client')).lesson },
+  { id: '12-ops', number: 12, subject: 'ops', load: async (): Promise<Lesson> => (await import('./12-ops')).lesson },
 ];

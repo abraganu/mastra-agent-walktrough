@@ -2,13 +2,14 @@
 lesson: 10
 subject: multi-agent
 status: todo
+availability: planned
 prereqs: [1, 4]
 primitives: [subagents, delegation, supervisor]
 code: src/mastra/lessons/10-multi-agent
 docs:
   - https://mastra.ai/docs/subagents
   - https://mastra.ai/docs/guides/multi-agent-systems
-updated: 2026-10-22
+updated: 2026-10-28
 ---
 
 # 10 · Multi-agent systems

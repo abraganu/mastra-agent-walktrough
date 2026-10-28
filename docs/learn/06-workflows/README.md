@@ -2,6 +2,7 @@
 lesson: 6
 subject: workflows
 status: todo
+availability: draft
 prereqs: [1, 2]
 primitives: [createStep, createWorkflow, then, branch, parallel, foreach, map, workflowState, suspend, resume, timeTravel]
 code: src/mastra/lessons/06-workflows
@@ -11,8 +12,15 @@ docs:
   - https://mastra.ai/docs/workflows/workflow-state
   - https://mastra.ai/docs/workflows/suspend-and-resume
   - https://mastra.ai/docs/workflows/time-travel
-updated: 2026-10-27
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Choose deterministic orchestration and safe resumable actions. **Time and cost:** 45–60 minutes for baseline, branch and approval; state, parallelism, foreach and time travel are optional labs. The agent step uses quota.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 06` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 06 · Workflows
 
@@ -37,7 +45,7 @@ flowchart LR
   C --> Out([city, report])
 ```
 
-Three rules hold the chain together. The first two are checked by `tsc` when you write the workflow; all three are checked again at run time by the schemas:
+Three rules hold the chain together. TypeScript checks compatibility when you write the workflow. At runtime, subsequent step inputs validate handoffs; the installed engine does not automatically validate terminal output. The demo explicitly parses that output. Design schemas so:
 
 1. The first step's `inputSchema` must accept the workflow's `inputSchema`.
 2. Each step's `outputSchema` must satisfy the next step's `inputSchema`.
@@ -111,10 +119,10 @@ Step 3 of the exercise does the move, and the difference is visible in the types
 
 Read top to bottom:
 
-- `../../src/mastra/lessons/06-workflows/workflow.ts` — the three steps and the workflow. Steps 1 and 3 are plain functions; only step 2 calls a model.
-- `../../src/mastra/lessons/06-workflows/weather-agent.ts` — `L06 · Weather Agent`. Note what is missing: no memory, and no instruction to ask a follow-up question. A step gets an input and returns an output; the workflow decides what happens when the input is unusable.
-- `../../src/mastra/lessons/06-workflows/weather-tool.ts` — the `l06-` weather tool. The middle step is one LLM call with a tool call inside it, which is exactly the kind of work a step isolates.
-- `../../src/mastra/lessons/06-workflows/index.ts` — the registry fragment and the demo: one run, printed as a trace.
+- [workflow.ts](../../../src/mastra/lessons/06-workflows/workflow.ts) — the three steps and the workflow. Steps 1 and 3 are plain functions; only step 2 calls a model.
+- [weather-agent.ts](../../../src/mastra/lessons/06-workflows/weather-agent.ts) — `L06 · Weather Agent`. Note what is missing: no memory, and no instruction to ask a follow-up question. A step gets an input and returns an output; the workflow decides what happens when the input is unusable.
+- [weather-tool.ts](../../../src/mastra/lessons/06-workflows/weather-tool.ts) — the `l06-` weather tool. The middle step is one agent invocation (which may make multiple model calls) with a tool call inside it, which is exactly the kind of work a step isolates.
+- [index.ts](../../../src/mastra/lessons/06-workflows/index.ts) — the registry fragment and the demo: one run, printed as a trace.
 
 The agent is looked up inside the step with `mastra.getAgentById('l06-weather-agent')` rather than imported. Every step receives `mastra`, so a step stays a function of (input, services) and the agent stays replaceable — from Studio's editor, or by a test double.
 
@@ -166,12 +174,8 @@ Work in `workflow.ts` and re-run `pnpm lesson 06` (or the Studio graph) after ea
 First, pull the casing into a helper — the snippets below use it, and it keeps the steps readable:
 
 ```ts
-const titleCase = (value: string) =>
-  value
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+const normalizeCity = (value: string) => value.trim().replace(/\s+/g, ' ');
+// Preserve accents and proper-name spelling; this is not a geocoder.
 ```
 
 **1. Make the first step able to refuse.** Today `normalize-location` always succeeds and the agent is always asked. Add a flag:
@@ -182,7 +186,7 @@ export const normalizeLocation = createStep({
   inputSchema: z.object({ location: z.string().trim().min(1) }),
   outputSchema: z.object({ city: z.string(), resolved: z.boolean() }),
   execute: async ({ inputData }) => {
-    const city = titleCase(inputData.location);
+    const city = inputData.location.trim();
     return { city, resolved: /[a-z]/i.test(city) };
   },
 });
@@ -248,7 +252,7 @@ const normalizeLocation = createStep({
   outputSchema: z.object({}),
   stateSchema: briefState,
   execute: async ({ inputData, state, setState }) => {
-    await setState({ ...state, city: titleCase(inputData.location) });
+    await setState({ ...state, city: inputData.location.trim() });
     return {};
   },
 });
@@ -288,7 +292,7 @@ export const weatherBriefWorkflow = createWorkflow({
   .commit();
 ```
 
-`city` no longer appears in any input or output schema — but the run still needs a starting value, so pass `initialState`:
+`city` no longer appears in the intermediate step input/output schemas (the final output still includes it) — but the run still needs a starting value, so pass `initialState`:
 
 ```ts
 const result = await run.start({
@@ -297,9 +301,11 @@ const result = await run.start({
 });
 ```
 
-And one shape detail worth measuring: `result.state` is **undefined** unless you ask for it with `outputOptions: { includeState: true }`; with the flag you get `{ city: 'Lisbon' }` next to the result. State is not smuggled into the result for free.
+And one shape detail worth measuring: `result.state` is **undefined** unless you ask for it with `outputOptions: { includeState: true }`; with the flag you get `{ city: 'lisbon' }` next to the result. State is not smuggled into the result for free.
 
-**4. Stop before the last step and wait for a human.** Put an approval step between the agent and the formatter. It needs three schemas, and the difference between them is the whole mechanism:
+**4. Stop before the last step and wait for a human.** Restore the baseline `workflow.ts` from the version you saved before exercise 1; this variant uses `{city, brief}` handoffs, not exercise 3's state-only variant. Keep your state experiment as notes rather than combining incompatible snippets.
+
+ Put an approval step between the agent and the formatter. It needs three schemas, and the difference between them is the whole mechanism:
 
 ```ts
 const approveReport = createStep({
@@ -394,7 +400,7 @@ The agent inside a step has no memory. No thread, no history: it is one call wit
 
 There are declarative shortcuts. `.agent(agentInstance)` adds an agent as a step without `createStep`, and `.tool(tool)` does the same for a tool — both reuse the agent's or tool's own schemas, and both are what storable, dynamic workflows are built from. In this version `.agent()` requires the previous step's output to be `{ prompt: string }`, so you usually need a `.map()` in front. The explicit `createStep` version above is the one that also shows you where `mastra` comes from.
 
-Time travel and suspend both need storage. They are snapshot operations; here `../../src/mastra/shared/storage.ts` (LibSQL) is what makes Walkthrough A's claims true outside Studio.
+Time travel and suspend both need storage. They are snapshot operations; here [storage.ts](../../../src/mastra/shared/storage.ts) (LibSQL) is what makes Walkthrough A's claims true outside Studio.
 
 ## Checkpoint
 
@@ -425,3 +431,22 @@ _Write what you learned here — three to five lines, in your own words._
 - Snapshots — https://mastra.ai/docs/workflows/snapshots
 - Time travel — https://mastra.ai/docs/workflows/time-travel
 - Agents and tools inside steps — https://mastra.ai/docs/workflows/agents-and-tools
+
+
+## Experiment worksheet
+
+Complete baseline and branch exercises first. Save your starting workflow locally before each optional variant. Use the baseline handoff variant for approval, or explicitly adapt both approval and formatting to workflow state.
+
+Try approval true and false. False currently suspends again; implement a separate rejection branch if rejection should terminate. Resume after restarting the application with the same run ID; then attempt repeated resume. Before adding real side effects, use a fictional operation ID and a set of completed IDs to explain how duplicate execution is prevented. Validate terminal output explicitly and count model rounds inside the single agent invocation.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Restore the baseline chain and clear only your lab workflow runs. Preserve accented city names; formatting is not geocoding.

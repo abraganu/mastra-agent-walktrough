@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { MDocument } from '@mastra/rag';
 import { embedMany } from 'ai';
 import { models } from '../../shared/models';
@@ -28,6 +29,7 @@ export const HANDBOOK_INDEX = 'l07_handbook';
 // Lesson exercise 2 changes both numbers and measures the effect.
 export const CHUNK_MAX_SIZE = 400;
 export const CHUNK_OVERLAP = 60;
+export const HANDBOOK_VERSION = createHash('sha256').update(JSON.stringify({ handbook, maxSize: CHUNK_MAX_SIZE, overlap: CHUNK_OVERLAP, embedding: models.embedding.modelId })).digest('hex');
 
 /** What gets stored beside each vector. `text` is what the agent reads; the rest is what it cites and filters on. */
 export type HandbookChunk = {
@@ -35,6 +37,7 @@ export type HandbookChunk = {
   source: string;
   topic: string;
   chunkIndex: number;
+  corpusVersion: string;
 };
 
 /**
@@ -67,6 +70,7 @@ export async function chunkHandbook(): Promise<HandbookChunk[]> {
         source: document.source,
         topic: document.topic,
         chunkIndex: index,
+        corpusVersion: HANDBOOK_VERSION,
       });
     });
   }
@@ -97,6 +101,9 @@ export async function ingestHandbook(): Promise<{
   });
 
   const dimension = embeddings[0]?.length ?? 0;
+  if (!dimension || embeddings.length !== chunks.length || embeddings.some((embedding) => embedding.length !== dimension || embedding.some((n) => !Number.isFinite(n)))) {
+    throw new Error('Invalid embedding batch; the existing index has not been replaced.');
+  }
 
   // Rebuild rather than append: this demo re-ingests the same three documents
   // every run, and upserting without clearing would leave stale chunks from an

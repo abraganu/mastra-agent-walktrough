@@ -2,7 +2,7 @@ import type { Lesson } from '../registry';
 
 // Guide: docs/learn/09-evals/README.md
 // Planned: scorers, live scoring with sampling, datasets + runEvals, CI.
-// Requires `pnpm add @mastra/evals` before this lesson can be written.
+// @mastra/evals is installed; recorded-check.ts demonstrates model-free scoring.
 export const lesson: Lesson = {
   id: '09-evals',
   number: 9,

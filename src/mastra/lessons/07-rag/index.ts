@@ -29,7 +29,7 @@ export const lesson: Lesson = {
   // `pnpm lesson 07` — the pipeline in order, so you can see where an answer
   // comes from before the model is asked to produce one.
   async demo(mastra) {
-    const question = 'How long do I have to ask for a refund on a subscription charge?';
+    const question = process.env.LESSON_PROMPT ?? 'How long do I have to ask for a refund on a subscription charge?';
 
     // 1. Ingest. Embedding the corpus is the only expensive step, and it does
     // not happen on the request path.
@@ -45,7 +45,7 @@ export const lesson: Lesson = {
 
     // 3. Retrieve without a model. This is the step that decides whether the
     // answer will be right; the model only phrases it.
-    console.log(`\n--- retrieval, no model ---\n"${question}"`);
+    console.log(`\n--- retrieval, embedding API only ---\n"${question}"`);
     for (const match of await searchChunks(question, 3)) {
       console.log(`  ${match.score.toFixed(3)}  ${match.source}  ${preview(match.text)}`);
     }

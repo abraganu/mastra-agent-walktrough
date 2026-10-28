@@ -2,6 +2,7 @@
 lesson: 11
 subject: server-client
 status: todo
+availability: planned
 prereqs: [1]
 primitives: [server, apiRoutes, RequestContext, MastraClient]
 code: src/mastra/lessons/11-server-client
@@ -9,7 +10,7 @@ docs:
   - https://mastra.ai/docs/server/overview
   - https://mastra.ai/docs/server/custom-api-routes
   - https://mastra.ai/docs/server/request-context
-updated: 2026-10-22
+updated: 2026-10-28
 ---
 
 # 11 · Server and client
@@ -25,7 +26,7 @@ updated: 2026-10-22
 
 ## Why here
 
-Everything so far ran in-process: the lesson demo imports the instance, Studio loads it. This is where the boundary appears. It is also where you learn the constraint that shaped the folder structure — code-registered primitives travel anywhere; `agents/<name>/config.ts` discovery does not.
+Earlier lessons used in-process calls; lesson 08 introduced stdio and HTTP MCP boundaries. This lesson introduces an application client calling the Mastra server. It is also where you learn the constraint that shaped the folder structure — code-registered primitives travel anywhere; `agents/<name>/config.ts` discovery does not.
 
 ## Exercise sketch
 

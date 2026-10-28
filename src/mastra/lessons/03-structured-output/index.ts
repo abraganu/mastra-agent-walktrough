@@ -25,9 +25,9 @@ export const lesson: Lesson = {
   async demo(mastra) {
     const agent = mastra.getAgentById('l03-report-agent');
     const response = await agent.generate(
-      "What's the weather in Madrid? Reply as a structured report.",
+      process.env.LESSON_PROMPT ?? "What's the weather in Madrid? Reply as a structured report.",
       {
-        memory: { resource: 'l03-demo', thread: 'l03-demo' },
+        memory: { resource: 'l03-demo', thread: process.env.LESSON_THREAD ?? `l03-${crypto.randomUUID()}` },
         structuredOutput: {
           schema: reportSchema,
           // The NaN gateway serves native json_schema response_format on

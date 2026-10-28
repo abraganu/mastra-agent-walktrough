@@ -20,8 +20,8 @@ export const lesson: Lesson = {
   // `pnpm lesson 01` — the same loop Studio shows you, without the UI.
   async demo(mastra) {
     const agent = mastra.getAgentById('l01-weather-agent');
-    const response = await agent.generate("What's the weather in Madrid?", {
-      memory: { resource: 'l01-demo', thread: 'l01-demo' },
+    const response = await agent.generate(process.env.LESSON_PROMPT ?? "What's the weather in Madrid?", {
+      memory: { resource: 'l01-demo', thread: process.env.LESSON_THREAD ?? `l01-${crypto.randomUUID()}` },
     });
 
     console.log('--- answer ---');

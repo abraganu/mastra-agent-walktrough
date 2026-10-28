@@ -2,6 +2,7 @@
 lesson: 7
 subject: rag
 status: todo
+availability: draft
 prereqs: [1, 2]
 primitives: [MDocument, embedMany, LibSQLVector, createTool, createVectorQueryTool, rerankWithScorer]
 code: src/mastra/lessons/07-rag
@@ -10,8 +11,15 @@ docs:
   - https://mastra.ai/reference/rag/chunking-and-embedding
   - https://mastra.ai/reference/rag/retrieval
   - https://mastra.ai/reference/rag/rerank
-updated: 2026-10-27
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Measure retrieval separately from answer quality. **Time and cost:** 45 minutes; `pnpm rag chunk` is API-free. Ingest embeds the corpus; query embeds a question; ask invokes an agent that can embed queries.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 07` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 07 · RAG
 
@@ -143,11 +151,11 @@ The reason to split them is the reason lesson 06 splits steps from the orchestra
 
 Read top to bottom:
 
-- `../../src/mastra/lessons/07-rag/handbook.ts` — the corpus. Three documents as `{ source, topic, text }`, fictional so nothing can be answered from memory.
-- `../../src/mastra/lessons/07-rag/ingest.ts` — chunk → embed → store. `HANDBOOK_INDEX`, `CHUNK_MAX_SIZE`, `CHUNK_OVERLAP`, and `ingestHandbook()` returning the two numbers worth watching: chunk count and dimension.
-- `../../src/mastra/lessons/07-rag/retrieval-tool.ts` — `searchChunks` and `searchHandbook`, in that order.
-- `../../src/mastra/lessons/07-rag/rag-agent.ts` — `L07 · Handbook Agent`. Three instruction lines, each closing a different failure: search before answering, use only what came back, say so when nothing matches.
-- `../../src/mastra/lessons/07-rag/index.ts` — the registry fragment and the demo: ingest, print the chunks, retrieve without a model, then ask the agent.
+- [handbook.ts](../../../src/mastra/lessons/07-rag/handbook.ts) — the corpus. Three documents as `{ source, topic, text }`, fictional so nothing can be answered from memory.
+- [ingest.ts](../../../src/mastra/lessons/07-rag/ingest.ts) — chunk → embed → store. `HANDBOOK_INDEX`, `CHUNK_MAX_SIZE`, `CHUNK_OVERLAP`, and `ingestHandbook()` returning the two numbers worth watching: chunk count and dimension.
+- [retrieval-tool.ts](../../../src/mastra/lessons/07-rag/retrieval-tool.ts) — `searchChunks` and `searchHandbook`, in that order.
+- [rag-agent.ts](../../../src/mastra/lessons/07-rag/rag-agent.ts) — `L07 · Handbook Agent`. Three instruction lines, each closing a different failure: search before answering, use only what came back, say so when nothing matches.
+- [index.ts](../../../src/mastra/lessons/07-rag/index.ts) — the registry fragment and the demo: ingest, print the chunks, retrieve without a model, then ask the agent.
 
 Ingestion **rebuilds** the index on every run — `deleteIndex` then `createIndex` — because this demo re-ingests the same three documents each time, and an append would leave stale chunks from an older chunk size behind. Real ingestion replaces per source instead: `upsert({ indexName, vectors, metadata, deleteFilter: { source } })`.
 
@@ -197,7 +205,7 @@ Four things to take from this, in the order they will matter later:
 SQLITE_ERROR: no such table: l07_handbook
 ```
 
-So run `pnpm lesson 07` first (or call `ingestHandbook()`) and the index persists for every later Studio session: both entry points open the same file, `mastra-playground.db` at the repo root, by absolute path (`../../src/mastra/shared/local-paths.ts`). That sounds too obvious to write down, and it is the first thing to check when Studio says *no such table* — a relative `file:./mastra-playground.db` would resolve against the dev server's working directory, which is `src/mastra/public`, and you would be looking at an empty database while a full index sat one directory up. Delete the file and you ingest again.
+So run `pnpm lesson 07` first (or call `ingestHandbook()`) and the index persists for every later Studio session: both entry points open the same file, `mastra-playground.db` at the repo root, by absolute path ([local-paths.ts](../../../src/mastra/shared/local-paths.ts)). That sounds too obvious to write down, and it is the first thing to check when Studio says *no such table* — a relative `file:./mastra-playground.db` would resolve against the dev server's working directory, which is `src/mastra/public`, and you would be looking at an empty database while a full index sat one directory up. Delete the file and you ingest again.
 
 Then `pnpm dev`, **Agents → L07 · Handbook Agent**:
 
@@ -218,8 +226,11 @@ Every iteration embeds the corpus again, so measure the split on its own first �
 // scratch.ts, next to package.json — delete it when you are done
 import { chunkHandbook } from './src/mastra/lessons/07-rag/ingest';
 
-const chunks = await chunkHandbook();
-console.log(chunks.length, chunks.map((chunk) => chunk.text.length));
+async function main() {
+  const chunks = await chunkHandbook();
+  console.log(chunks.length, chunks.map((chunk) => chunk.text.length));
+}
+main().catch(console.error);
 ```
 
 ```bash
@@ -325,7 +336,7 @@ Which is also why the missing-index error says "no such table".
 
 **Ingestion can go stale.** Nothing here notices when `handbook.ts` changes and the index does not. In a real system that is a re-ingestion trigger on the source, not a bigger `topK`.
 
-**The vector store is shared.** `../../src/mastra/shared/vector.ts` is the same database file lesson 04 uses for semantic recall; indexes are separate tables, so they do not collide. Delete `mastra-playground.db` to reset both — and re-ingest afterwards.
+**The vector store is shared.** [vector.ts](../../../src/mastra/shared/vector.ts) is the same database file lesson 04 uses for semantic recall; indexes are separate tables, so they do not collide. Delete `mastra-playground.db` to reset both — and re-ingest afterwards.
 
 **No memory on this agent, on purpose.** Every question is answered from the same index. A thread would add history the corpus should be doing the work for, and lesson 04 already showed you the version with memory.
 
@@ -357,3 +368,22 @@ _Write what you learned here — three to five lines, in your own words._
 - Retrieval — https://mastra.ai/reference/rag/retrieval
 - Rerank — https://mastra.ai/reference/rag/rerank
 - LibSQL vector store — https://mastra.ai/reference/vectors/libsql
+
+
+## Experiment worksheet
+
+Use `questions.ts` as a fixed five-question evaluation set. Record expected sources, retrieved sources/ranks, answer citations and unsupported claims. An unsupported question can still retrieve nearest neighbors; similarity is not proof of answerability.
+
+Run `pnpm rag chunk` while changing chunk size, without paying to embed. When satisfied, run `pnpm rag ingest`, then `pnpm rag query "What is the refund window?"`. Use `pnpm rag ask` only for final answer comparisons. Repeat with different topK/filter settings and compare source recall. The corpus/model/chunk fingerprint rejects stale retrieved chunks; re-ingest after changing them.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Restore chunk constants and re-ingest once. Stop Studio before commands using the Mastra instance; never delete the shared database to reset only this lesson.

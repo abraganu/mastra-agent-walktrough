@@ -9,7 +9,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { asList, asString, parseFrontMatter } from './front-matter';
+import { requireModelEnvironment } from '../src/mastra/shared/environment';
 import { loadEnv } from './load-env';
+import { lessons } from '../src/mastra/lessons';
 
 const GUIDES_DIR = 'docs/learn';
 
@@ -20,22 +22,20 @@ type LessonSummary = {
 };
 
 async function list(): Promise<void> {
-  const { lessons } = (await import('../src/mastra/lessons')) as { lessons: LessonSummary[] };
 
-  console.log('Lesson                Status        Primitives');
+  console.log('Lesson                Availability  Status        Primitives');
   console.log('--------------------  ------------  ------------------------------------------');
   for (const lesson of lessons) {
     const guidePath = join(GUIDES_DIR, lesson.id, 'README.md');
     const frontMatter = existsSync(guidePath) ? parseFrontMatter(readFileSync(guidePath, 'utf8')) : null;
     const status = frontMatter ? asString(frontMatter.status) || 'unknown' : 'no guide';
     const primitives = asList(frontMatter?.primitives).join(', ') || '—';
-    console.log(`${lesson.id.padEnd(20)}  ${status.padEnd(12)}  ${primitives}`);
+    console.log(`${lesson.id.padEnd(20)}  ${asString(frontMatter?.availability).padEnd(12)}  ${status.padEnd(12)}  ${primitives}`);
   }
   console.log('\nRead a guide: docs/learn/<slug>/README.md');
 }
 
 async function run(argument: string): Promise<void> {
-  const { lessons } = (await import('../src/mastra/lessons')) as { lessons: LessonSummary[] };
 
   const wanted = /^\d{1,2}$/.test(argument) ? argument.padStart(2, '0') : argument;
   const lesson = lessons.find(
@@ -53,19 +53,14 @@ async function run(argument: string): Promise<void> {
   // Mount only this lesson, so its primitives are the only ones in the registry.
   process.env.MASTRA_LESSONS = lesson.id;
 
-  const [{ mastra }, lessonModule] = await Promise.all([
-    import('../src/mastra/index'),
-    import(`../src/mastra/lessons/${lesson.id}/index`),
-  ]);
-
-  const demo = (lessonModule.lesson as { demo?: (instance: typeof mastra) => Promise<void> }).demo;
+  const { demo } = await lesson.load();
   if (!demo) {
-    console.log(`${lesson.id} has no headless demo yet.`);
-    console.log(`Follow the guide instead: ${join(GUIDES_DIR, lesson.id, 'README.md')}`);
+    console.log(`${lesson.id} has no headless demo yet. Follow docs/learn/${lesson.id}/README.md`);
     return;
   }
-
-  await demo(mastra);
+  requireModelEnvironment();
+  const { mastra } = await import('../src/mastra/index');
+  try { await demo(mastra); } finally { await mastra.shutdown(); }
 }
 
 async function main(): Promise<void> {
@@ -84,5 +79,5 @@ async function main(): Promise<void> {
 
 main().catch((error) => {
   console.error(error);
-  process.exit(1);
+  process.exitCode = 1;
 });

@@ -2,6 +2,7 @@
 lesson: 1
 subject: agent-loop
 status: todo
+availability: draft
 prereqs: []
 primitives: [Agent, LibSQLStore, MastraEditor, Memory]
 code: src/mastra/lessons/01-agent-loop
@@ -10,8 +11,15 @@ docs:
   - https://mastra.ai/docs/observability/tracing/overview
   - https://mastra.ai/docs/studio/overview
   - https://mastra.ai/docs/studio/editor
-updated: 2026-10-22
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Observe goals, actions, state and termination. **Time and cost:** 20–30 minutes; each agent run uses gateway quota. Fixture weather makes no weather-service request.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 01` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 01 · The agent loop
 
@@ -56,10 +64,10 @@ Three things worth noticing before you run anything:
 
 You are not modifying code in this lesson. Read these two files top to bottom:
 
-- `../../src/mastra/lessons/01-agent-loop/weather-agent.ts` — `id`, `name`, `instructions`, `model`, `tools`, `memory`, and the commented `editor` options.
-- `../../src/mastra/lessons/01-agent-loop/weather-tool.ts` — the tool the model can call: `id`, `description`, `inputSchema`, `outputSchema`, `execute`.
+- [weather-agent.ts](../../../src/mastra/lessons/01-agent-loop/weather-agent.ts) — `id`, `name`, `instructions`, `model`, `tools`, `memory`, and the commented `editor` options.
+- [weather-tool.ts](../../../src/mastra/lessons/01-agent-loop/weather-tool.ts) — the tool the model can call: `id`, `description`, `inputSchema`, `outputSchema`, `execute`.
 
-Then `../../src/mastra/index.ts` — it only merges lesson registries with shared storage and the editor. That is why the structure stays flat as the curriculum grows.
+Then [index.ts](../../../src/mastra/index.ts) — it only merges lesson registries with shared storage and the editor. That is why the structure stays flat as the curriculum grows.
 
 The model is `models.default` (`deepseek-v4-flash`) from `src/mastra/shared/models.ts`. That file builds an OpenAI-compatible provider against `OPENAI_BASE_URL` instead of using the router string `openai/deepseek-v4-flash`: the router uses OpenAI's Responses API, and the NaN gateway only speaks Chat Completions.
 
@@ -118,7 +126,7 @@ Remember to revert to no `editor` key when you are done, or lesson 01 stops demo
 
 Ask something the loop cannot resolve: *What is the weather on the moon?* Then *What is the weather in `{{`?*
 
-Watch where it fails in the trace. A tool that throws and a tool that returns a failure string are different failure modes, and only one of them lets the model recover. That distinction is lesson 02's opening move.
+Watch where it fails in the trace. A tool that throws produces a failed tool call; a tool that returns a failure string produces a successful call with error-shaped data. Ordinary thrown tool errors can reach the model and allow recovery too. Compare their spans and the next model turn. That distinction is lesson 02's opening move.
 
 ## Checkpoint
 
@@ -146,3 +154,26 @@ _Write what you learned here — three to five lines, in your own words, especia
 - Studio — https://mastra.ai/docs/studio/overview
 - Studio Editor — https://mastra.ai/docs/studio/editor
 - `Agent` reference — https://mastra.ai/reference/agents/agent
+
+
+## Experiment worksheet
+
+| Prompt | Predict | Evidence |
+| --- | --- | --- |
+| Say hello in one sentence | No weather tool | Count model and tool spans |
+| What is the weather in Madrid? | Weather tool, then a model answer | Compare tool data with final claims |
+| Compare Madrid and Austin weather | Multiple observations may be needed | Count calls; record order and finish reason |
+
+Repeat each case three times. Record model rounds, tool calls, latency, tokens and unsupported claims. A prompt is a hypothesis, not a guaranteed execution plan. Transfer the loop to an incident-triage task: identify the goal, observations, allowed actions, stopping rule and evidence before writing code.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Remove published Studio Editor overrides or restore their original version; reverting source does not remove database overrides. Use a new thread for each baseline comparison.

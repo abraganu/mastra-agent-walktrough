@@ -2,6 +2,7 @@
 lesson: 12
 subject: ops
 status: todo
+availability: planned
 prereqs: [1, 9]
 primitives: [MastraEditor, exporters, retention, deployer]
 code: src/mastra/lessons/12-ops
@@ -9,7 +10,7 @@ docs:
   - https://mastra.ai/docs/studio/editor
   - https://mastra.ai/docs/observability/tracing/overview
   - https://mastra.ai/docs/deployment/overview
-updated: 2026-10-22
+updated: 2026-10-28
 ---
 
 # 12 · Operations

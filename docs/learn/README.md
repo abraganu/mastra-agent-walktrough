@@ -24,26 +24,32 @@ pnpm typecheck            # tsc + lessons:check
 | --- | --- | --- | --- |
 | 01 | `01-agent-loop` | Read a run as a trace and change behavior without touching code | `Agent`, traces, Studio Editor |
 | 02 | `02-tools` | Give an agent callable functions it actually calls correctly | `createTool`, zod schemas |
-| 03 | `03-structured-output` | Get typed data back instead of prose | `outputSchema`, `defaultOptions`, `stream` |
+| 03 | `03-structured-output` | Get typed data back instead of prose | `structuredOutput`, `defaultOptions`, `stream` |
 | 04 | `04-memory` | Keep context across turns, threads, and users | `Memory`, threads, working memory |
 | 05 | `05-processors` | Rewrite or block input and output around the model call | processors, guardrails |
 | 06 | `06-workflows` | Put agents inside deterministic, resumable processes | `createStep`, `createWorkflow`, `branch`, `suspend`, `timeTravel` |
 | 07 | `07-rag` | Answer from your own documents | `MDocument`, `embedMany`, `LibSQLVector`, reranking |
-| 08 | `08-mcp` | Share tools with other agents, and consume theirs | `MCPServer`, `MCPClient` |
+| 08 | `08-mcp` | Share tools with other agents, and consume theirs | `MCPServer`, `MCPClient`, `listTools`, `toolsets` |
 | 09 | `09-evals` | Measure whether a change made the agent better | scorers, datasets |
 | 10 | `10-multi-agent` | Split one big agent into specialists + a supervisor | subagents, delegation |
 | 11 | `11-server-client` | Serve the agent over HTTP and stream it into a UI | routes, `RequestContext`, client |
 | 12 | `12-ops` | Ship it: versioned config, tracing, deploys, retention | editor source, exporters, deployers |
 
+## Agent concepts to carry between frameworks
+
+An agent has a goal, observations, available actions, state, and a termination condition. Instructions describe the goal; model/tool messages supply observations; tools grant actions; memory and workflow state retain information; step limits, cancellation, and approvals bound execution. Traces provide evidence of what ran. Tool names, resource IDs, and prompt instructions are not authorization checks.
+
+Local hosting does not mean local inference: the configured gateway processes prompts and embeddings. Use fictional personal data and never paste credentials into prompts or share raw state databases.
+
 ## How to work through a lesson
 
 1. Read the guide in full before editing anything.
-2. Run the example as-is. `pnpm lesson <n>` for the headless path, `pnpm dev` for Studio.
+2. Stop Studio before a CLI demo (both use writable DuckDB), then run the example as-is. `pnpm lesson <n>` for the headless path, `pnpm dev` for Studio.
 3. Read the trace. Predict what the spans should look like, then check. This is the habit the whole path is built around.
 4. Break it on purpose — drop a schema field, remove an instruction line, pass a bad ID. Note how it fails.
 5. Write three to five lines under `Notes` in the guide, then set `status` to `done`.
 
-Status lives in each guide's front-matter only, so `pnpm lessons` is always the truth about where you are.
+`availability` describes teaching readiness (`draft`, `ready`, `planned`); only a human promotes a draft after verifying Studio. It is independent of learner progress. Status lives in each guide's front-matter only, so `pnpm lessons` is always the truth about where you are.
 
 ## Not in the path
 

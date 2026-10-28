@@ -7,7 +7,7 @@ import { weatherTool } from './weather-tool';
 // done, two tools competing for the same user phrasing.
 // Guide: docs/learn/02-tools/README.md
 //
-// `models.default` is a model instance from shared/models.ts, not a router
+// `models.default` is a chat configuration from shared/models.ts, not a router
 // string — see that file for why.
 // Docs: https://mastra.ai/docs/agents/tools
 export const toolsAgent = new Agent({

@@ -1,4 +1,5 @@
 import type { Lesson } from '../registry';
+import { z } from 'zod';
 import { weatherAgent } from './weather-agent';
 import { weatherTool } from './weather-tool';
 import { weatherBriefWorkflow } from './workflow';
@@ -18,7 +19,7 @@ export const lesson: Lesson = {
     'https://mastra.ai/docs/workflows/time-travel',
   ],
   register: {
-    agents: { weatherAgent },
+    agents: { l06WeatherAgent: weatherAgent },
     tools: { [weatherTool.id]: weatherTool },
     workflows: { weatherBriefWorkflow },
   },
@@ -56,7 +57,7 @@ export const lesson: Lesson = {
 
     if (result.status === 'success') {
       console.log('\n--- result ---');
-      console.log(result.result.report);
+      console.log(z.object({ city: z.string().min(1), report: z.string() }).parse(result.result).report);
       if (result.stepExecutionPath) {
         console.log(`\npath: ${result.stepExecutionPath.join(' -> ')}`);
       }
@@ -66,13 +67,13 @@ export const lesson: Lesson = {
 
     console.log('\n--- what to conclude ---');
     console.log(
-      'Three steps, one LLM call:\n' +
+      'Three steps, one agent invocation (potentially several model rounds):\n' +
         '  · normalize-location and format-brief are plain functions — same\n' +
         '    answer every run, and free\n' +
         '  · ask-weather-agent is the only step that spends tokens; it hands\n' +
         '    forward `city` as well as `brief`, because the last step needs both\n' +
         '  · each hand-off is a schema: tsc checks the chain when you write it,\n' +
-        '    and the run validates the data again at every step boundary\n' +
+        '    next-step inputs are validated; terminal output needs an explicit parse\n' +
         '  · the steps map above is the trace — status, payload, output per\n' +
         '    step. Nothing about the order was left to the model.',
     );

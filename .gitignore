@@ -8,5 +8,6 @@ dist/
 *.duckdb
 *.duckdb.wal
 local_cache/
-.env
+.env*
+!.env.example
 .DS_Store

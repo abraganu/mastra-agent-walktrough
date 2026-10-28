@@ -2,6 +2,7 @@
 lesson: 9
 subject: evals
 status: todo
+availability: planned
 prereqs: [4, 6]
 primitives: [scorers, runEvals, datasets, sampling]
 code: src/mastra/lessons/09-evals
@@ -9,7 +10,7 @@ docs:
   - https://mastra.ai/docs/evals/overview
   - https://mastra.ai/docs/evals/datasets
   - https://mastra.ai/docs/evals/running-in-ci
-updated: 2026-10-22
+updated: 2026-10-28
 ---
 
 # 09 · Evals

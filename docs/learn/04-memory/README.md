@@ -2,6 +2,7 @@
 lesson: 4
 subject: memory
 status: todo
+availability: draft
 prereqs: [1, 2, 3]
 primitives: [Memory, messageHistory, workingMemory, semanticRecall, observationalMemory]
 code: src/mastra/lessons/04-memory
@@ -11,8 +12,15 @@ docs:
   - https://mastra.ai/docs/memory/working-memory
   - https://mastra.ai/docs/memory/semantic-recall
   - https://mastra.ai/docs/memory/observational-memory
-updated: 2026-10-26
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Distinguish conversation history, durable facts and identity. **Time and cost:** 40 minutes; recall may use embedding quota and observational memory adds background model calls.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 04` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 04 · Memory
 
@@ -59,10 +67,10 @@ A thread's owner is fixed at creation — never reuse a thread id for a differen
 
 Read top to bottom:
 
-- `../../src/mastra/lessons/04-memory/memory-agent.ts` — `L04 · Memory Agent`, baseline: `lastMessages: 20` and nothing else. The exercise adds the other three layers here.
-- `../../src/mastra/lessons/04-memory/weather-tool.ts` — the `l04-` weather tool, present so the loop has a real tool. Tool calls and results are messages too: they count against `lastMessages` and get saved like anything else.
-- `../../src/mastra/lessons/04-memory/index.ts` — the demo below.
-- `../../src/mastra/shared/storage.ts` and `shared/vector.ts` — storage and vector store, wired once on the Mastra instance. Agents never construct their own; that is why `Memory` here has no `storage` argument.
+- [memory-agent.ts](../../../src/mastra/lessons/04-memory/memory-agent.ts) — `L04 · Memory Agent`, baseline: `lastMessages: 20` and nothing else. The exercise adds the other three layers here.
+- [weather-tool.ts](../../../src/mastra/lessons/04-memory/weather-tool.ts) — the `l04-` weather tool, present so the loop has a real tool. Tool calls and results are messages too: they count against `lastMessages` and get saved like anything else.
+- [index.ts](../../../src/mastra/lessons/04-memory/index.ts) — the demo below.
+- [storage.ts](../../../src/mastra/shared/storage.ts) and `shared/vector.ts` — storage and vector store, wired once on the Mastra instance. Agents never construct their own; that is why `Memory` here has no `storage` argument.
 
 ## Walkthrough A — headless
 
@@ -139,11 +147,14 @@ Now build a thread where the fact you need early is *outside* the two-message wi
 
 ```ts
 options: {
-  observationalMemory: true,
+  observationalMemory: {
+    model: models.cheap,
+    observation: { messageTokens: 500, bufferTokens: false },
+  },
 },
 ```
 
-Re-run a longer thread (six or eight varied messages). Observations replace the raw older messages: the trace shows a compact observation block plus only the messages not yet observed. Compare input tokens against the same conversation with plain history. Your one-sentence trade-off: raw history is exact but grows without bound; observational memory stays small and stable but is a lossy summary written by another model — and it costs background LLM calls.
+Use a fresh thread and send enough varied fictional content to exceed 500 tokens; count tokens instead of assuming a fixed number of messages. The production default is about 30,000 tokens. This deliberately small threshold is for the lab. Observation calls consume additional quota. After the threshold is crossed, inspect whether observations replace older messages: the trace shows a compact observation block plus only the messages not yet observed. Compare input tokens against the same conversation with plain history. Your one-sentence trade-off: raw history is exact but grows without bound; observational memory stays small and stable but is a lossy summary written by another model — and it costs background LLM calls.
 
 **5. Inspect memory from code.** `Memory` is queryable. From a scratch script or the demo:
 
@@ -156,9 +167,9 @@ const { messages } = await memory!.recall({
 console.log(messages.length);
 ```
 
-`recall()` is also how you would render a thread list in your own UI. Add `vectorSearchString` plus `threadConfig: { semanticRecall: true }` to search by meaning instead of recency.
+`recall()` retrieves message history; use `listThreads()` to render a thread list. Add `vectorSearchString` plus `threadConfig: { semanticRecall: true }` to search by meaning instead of recency.
 
-Revert to the baseline `Memory` when done — lesson 05 mounts on top of this agent shape.
+Revert to the baseline `Memory` when done — lesson 05 has an independent baseline; changes here do not carry forward.
 
 ## Checkpoint
 
@@ -186,3 +197,22 @@ _Write what you learned here — three to five lines, in your own words._
 - Working memory — https://mastra.ai/docs/memory/working-memory
 - Semantic recall — https://mastra.ai/docs/memory/semantic-recall
 - Observational memory — https://mastra.ai/docs/memory/observational-memory
+
+
+## Experiment worksheet
+
+In Studio create resource `student-a` with threads `a-1` and `a-2`, and resource `student-b` with thread `b-1`. In a-1 introduce the fictional name Sam and preference Celsius. Ask for those facts in all three threads before and after enabling resource-scoped working memory/recall. Record which messages entered the model context. Do not reuse an existing thread ID with a different resource.
+
+Resource IDs express ownership in memory configuration; they are not authentication. A server must establish authorized identity separately. Increase the observation text until the configured token threshold is crossed, then compare context size and retained facts; do not assume six messages trigger compaction.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Restore baseline history-only memory. Delete only your lab threads through Studio or use new IDs; do not delete the shared database while any process is running.

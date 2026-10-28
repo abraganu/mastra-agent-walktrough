@@ -3,10 +3,10 @@
  * so import this before touching a model to get the same environment.
  */
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { rootPath } from '../src/mastra/shared/local-paths';
 
 export function loadEnv(): void {
-  const path = resolve('.env');
+  const path = rootPath('.env');
   if (!existsSync(path)) return;
 
   // Node >= 20.12 / 21.7.

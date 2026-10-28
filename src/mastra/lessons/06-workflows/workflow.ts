@@ -6,11 +6,11 @@ import { z } from 'zod';
 // Guide: docs/learn/06-workflows/README.md
 // Docs: https://mastra.ai/docs/workflows/overview
 //
-// Baseline only: a straight `.then()` line, one LLM call in the middle. The
+// Baseline only: a straight `.then()` line, one agent invocation in the middle. The
 // guide's exercise adds `.branch`, workflow state, `suspend`, and time travel.
 //
-// The three rules of the chain (checked by tsc and, at run time, by the
-// schemas):
+// Schema compatibility is checked by TypeScript; next-step inputs are checked
+// at runtime. Parse the final output explicitly when a runtime guarantee matters:
 //   first step's inputSchema  = the workflow's inputSchema
 //   each step's outputSchema  = the next step's inputSchema
 //   last step's outputSchema  = the workflow's outputSchema
@@ -19,13 +19,11 @@ import { z } from 'zod';
 // is the point: put the predictable work in a step you can read.
 export const normalizeLocation = createStep({
   id: 'normalize-location',
-  description: 'Title-case the location string the schema already trimmed.',
+  description: 'Preserve the spelling of the trimmed location, including accented names.',
   inputSchema: z.object({ location: z.string().trim().min(1) }),
   outputSchema: z.object({ city: z.string().min(1) }),
   execute: async ({ inputData }) => {
-    const city = inputData.location
-      .toLowerCase()
-      .replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+    const city = inputData.location.trim();
 
     return { city };
   },

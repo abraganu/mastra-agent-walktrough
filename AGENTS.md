@@ -34,8 +34,8 @@ Nothing else defines a lesson. Do not create a third location.
 1. A lesson directory contains exactly one registry fragment, `src/mastra/lessons/<slug>/index.ts`, exporting a `Lesson` (see `src/mastra/lessons/registry.ts`). Its `register` field is the only place that lesson's primitives are declared.
 2. A lesson may import from `src/mastra/shared/` and from its own folder. Imports that cross into another lesson are rejected by `pnpm lessons:check`.
 3. Namespace primitives with the lesson number: `id: 'l04-memory-agent'`, `name: 'L04 · Memory Agent'`. Studio orders and labels by that prefix.
-4. Shared services (storage, editor, model ids) live in `src/mastra/shared/` and are wired once in `src/mastra/index.ts`. A lesson never constructs its own storage.
-5. Each code folder must be imported in `src/mastra/lessons/index.ts`.
+4. Shared services (storage, editor, model configurations) live in `src/mastra/shared/` and are wired once in `src/mastra/index.ts`. A lesson never constructs its own storage.
+5. Each code folder must have an explicit lazy loader in `src/mastra/lessons/index.ts`. Listing lessons must not import their implementations. Workflow-local step IDs are scoped by the workflow; globally registered primitives use lesson prefixes.
 
 ## Guide front-matter
 
@@ -45,7 +45,8 @@ Every `docs/learn/<slug>/README.md` starts with these keys:
 ---
 lesson: 4
 subject: memory
-status: todo            # todo | in-progress | done
+status: todo            # student progress: todo | in-progress | done
+availability: draft     # teaching readiness: draft | ready | planned
 prereqs: [1, 2, 3]      # earlier lesson numbers only
 primitives: [Memory, LibSQLStore]
 code: src/mastra/lessons/04-memory
@@ -75,7 +76,7 @@ pnpm build / pnpm start  # production build and run
 
 ## Environment
 
-Copy `.env.example` to `.env` and set `OPENAI_API_KEY` (a NaN gateway key). Every entry point loads it via `scripts/load-env.ts`. Never commit `.env` or echo its values.
+Copy `.env.example` to `.env` and set `OPENAI_API_KEY` (a NaN gateway key). The Mastra CLI loads environment files itself; plain scripts call `loadEnv()` from `scripts/load-env.ts`. The fixture-only MCP stdio server needs no key. Never commit `.env` or echo its values.
 
 ## Verifying changes
 
@@ -87,7 +88,7 @@ Copy `.env.example` to `.env` and set `OPENAI_API_KEY` (a NaN gateway key). Ever
 
 1. Create `docs/learn/<slug>/README.md` with the front-matter above, then: why this lesson is here, exercise sketch, Studio checklist, Notes, docs links.
 2. Create `src/mastra/lessons/<slug>/index.ts` exporting the `Lesson` — copy the shape of `src/mastra/lessons/01-agent-loop/index.ts`, the canonical example — even if `register` is `{}` while the lesson is still a stub.
-3. Add the import to `src/mastra/lessons/index.ts`.
+3. Add the lazy loader to `src/mastra/lessons/index.ts`.
 4. Add the row to the table in `docs/learn/README.md`.
 5. Run `pnpm typecheck`.
 
@@ -101,4 +102,18 @@ Do not trust model knowledge of Mastra APIs — they change between versions. Pr
 
 The `mastra` skill in `.agents/skills/mastra/` documents this workflow.
 
-`src/mastra/shared/models.ts` builds an `@ai-sdk/openai-compatible` provider against `OPENAI_BASE_URL` (NaN) and exports model instances (`models.default`, `models.cheap`, `models.embedding`). See Hard rules for the `openai/*` ban.
+`src/mastra/shared/models.ts` exports Mastra-native chat configurations with `api: 'chat'` against `OPENAI_BASE_URL` (NaN), plus an AI SDK embedding instance (`models.default`, `models.cheap`, `models.embedding`). See Hard rules for the `openai/*` ban.
+
+
+## Runtime, lifecycle and teaching quality
+
+- Use Node 24 (`.node-version`) and the pnpm version in `packageManager`; install with `pnpm install --frozen-lockfile`. Keep TypeScript on v6.
+- Run `pnpm verify` for model-free regression checks after changing contracts, loading, or lifecycle. It starts only the fixture MCP stdio process; it does not start Studio or call external APIs.
+- Keep owning stores reachable. Shut down Mastra in `finally`; disconnect MCP clients on errors as well as success. Never connect or spawn at import time.
+- Stop Studio before running a headless demo: the shared DuckDB file has one writable process owner. Never delete state while any process is using it.
+- Make snippets match the baseline or explicitly name prerequisite edits/reset checkpoints. Typecheck executable snippets where practical. The repository uses ESM, including `tsx` scripts.
+- Distinguish schema validity from factual correctness, recoverable tool errors from terminal failures, resource identity from authorization, and filtered environments from sandboxing.
+- Every first-eight guide includes objective, time/cost, prediction, experiment, evidence and reset. Treat model outcomes as hypotheses, not guaranteed responses.
+- Reset instructions cover published Editor overrides and persisted state, not just source edits. Preserve learner status. Promote teaching availability from draft only after a human confirms the Studio checklist.
+- During report-only reviews do not edit, install skills/packages, or submit external feedback. Reports separate reproduced defects, source-based risks and suggestions.
+- Use `.agents/skills/lesson-authoring/SKILL.md` when authoring/reviewing curriculum; use the existing Mastra skill for API verification. Installed writing skills support repository maintenance; they do not grant commit, publication, or external messaging permission.

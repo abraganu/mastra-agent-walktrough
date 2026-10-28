@@ -2,12 +2,13 @@ import { Agent } from '@mastra/core/agent';
 import { Memory } from '@mastra/memory';
 import { models } from '../../shared/models';
 import { weatherTool } from './weather-tool';
+import { reportSchema } from './report-schema';
 
 // Lesson 03 subject: the same loop as lessons 01–02, but the answer comes
 // back as a typed object, and the loop's termination is explicit.
 // Guide: docs/learn/03-structured-output/README.md
 //
-// `models.default` is a model instance from shared/models.ts, not a router
+// `models.default` is a chat configuration from shared/models.ts, not a router
 // string — see that file for why.
 // Docs: https://mastra.ai/docs/agents/structured-output
 export const reportAgent = new Agent({
@@ -24,6 +25,7 @@ export const reportAgent = new Agent({
       plain prose.
 `,
   model: models.default,
+  defaultOptions: { structuredOutput: { schema: reportSchema, jsonPromptInjection: 'system' }, maxSteps: 5 },
 
   // Keyed by the tool's id, as in lesson 02: the object key is the toolName
   // the model and the traces report.

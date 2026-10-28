@@ -15,7 +15,7 @@ import type { Config, Mastra } from '@mastra/core';
 
 /** The slice of the Mastra config a lesson is allowed to contribute. */
 export type LessonRegister = Partial<
-  Pick<Config, 'agents' | 'tools' | 'workflows' | 'scorers' | 'processors'>
+  Pick<Config, 'agents' | 'tools' | 'workflows' | 'scorers' | 'processors' | 'mcpServers'>
 >;
 
 export type Lesson = {
@@ -42,7 +42,7 @@ export function isLessonSlug(value: string): boolean {
  * Select the lessons to register. `MASTRA_LESSONS=01,04 pnpm dev` narrows the
  * instance to those lessons; with the variable unset every lesson registers.
  */
-export function activeLessons(lessons: Lesson[]): Lesson[] {
+export function activeLessons<T extends Pick<Lesson, 'id' | 'number' | 'subject'>>(lessons: T[]): T[] {
   const raw = process.env.MASTRA_LESSONS?.trim();
   if (!raw) return lessons;
 
@@ -73,14 +73,29 @@ export function mergeLessons(lessons: Lesson[]): LessonRegister {
     workflows: {},
     scorers: {},
     processors: {},
+    // Registered MCP servers are mounted by Mastra at `/api/mcp/<serverId>/mcp`
+    // and listed in Studio. A lesson contributes one the same way it
+    // contributes an agent — there is no second registration path.
+    mcpServers: {},
   };
 
   for (const lesson of lessons) {
+    for (const kind of Object.keys(merged) as (keyof LessonRegister)[]) {
+      const existing = merged[kind] as Record<string, unknown>;
+      for (const [key, primitive] of Object.entries(lesson.register[kind] ?? {})) {
+        if (Object.hasOwn(existing, key)) throw new Error(`Duplicate ${kind} registration: ${key}`);
+        const id = (primitive as { id?: string }).id;
+        if (!id?.startsWith(`l${String(lesson.number).padStart(2, '0')}-`)) {
+          throw new Error(`${lesson.id}: ${kind}.${key} must have a lesson-prefixed id`);
+        }
+      }
+    }
     Object.assign(merged.agents!, lesson.register.agents ?? {});
     Object.assign(merged.tools!, lesson.register.tools ?? {});
     Object.assign(merged.workflows!, lesson.register.workflows ?? {});
     Object.assign(merged.scorers!, lesson.register.scorers ?? {});
     Object.assign(merged.processors!, lesson.register.processors ?? {});
+    Object.assign(merged.mcpServers!, lesson.register.mcpServers ?? {});
   }
 
   return merged;

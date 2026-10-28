@@ -1,3 +1,4 @@
+import { getWeather } from '../../shared/weather';
 import { createTool } from '@mastra/core/tools';
 import { z } from 'zod';
 
@@ -19,30 +20,14 @@ export const weatherTool = createTool({
   outputSchema: z.object({
     output: z.string(),
   }),
-  execute: async ({ location }) => {
+  execute: async ({ location }, context) => {
     try {
-      const res = await fetch(
-        `https://wttr.in/${encodeURIComponent(location)}?format=j1`,
-        { headers: { 'User-Agent': 'mastra-playground' } },
-      );
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      const current = data?.current_condition?.[0];
-      if (!current) throw new Error('unexpected response from wttr.in');
-      const description = current.weatherDesc?.[0]?.value ?? 'unknown';
-      return {
-        output:
-          `Current weather in ${location}: ${description}, ` +
-          `${current.temp_C}°C (feels like ${current.FeelsLikeC}°C), ` +
-          `humidity ${current.humidity}%, wind ${current.winddir16Point} ` +
-          `at ${current.windspeedKmph} km/h`,
-      };
+      return { output: await getWeather(location, context?.abortSignal) };
     } catch (error) {
-      return {
-        output: `Could not fetch weather for ${location}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      };
+      // Propagate caller cancellation; ordinary upstream failures remain a
+      // successful error-shaped value for the lesson's throw/return comparison.
+      context?.abortSignal?.throwIfAborted();
+      return { output: `Could not fetch weather for ${location}: ${error instanceof Error ? error.message : String(error)}` };
     }
   },
 });

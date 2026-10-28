@@ -22,8 +22,8 @@ export const lesson: Lesson = {
   // `pnpm lesson 02` — the starting state: one agent, one tool, one loop.
   async demo(mastra) {
     const agent = mastra.getAgentById('l02-tools-agent');
-    const response = await agent.generate("What's the weather in Madrid?", {
-      memory: { resource: 'l02-demo', thread: 'l02-demo' },
+    const response = await agent.generate(process.env.LESSON_PROMPT ?? "What's the weather in Madrid?", {
+      memory: { resource: 'l02-demo', thread: process.env.LESSON_THREAD ?? `l02-${crypto.randomUUID()}` },
     });
 
     console.log('--- answer ---');

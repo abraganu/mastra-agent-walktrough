@@ -1,19 +1,32 @@
 # Mastra Playground
 
-Local playground for building AI agents with [Mastra](https://mastra.ai), powered by the [NaN gateway](https://nan.builders) (OpenAI-compatible). Runs entirely on your machine.
+Local playground for building AI agents with [Mastra](https://mastra.ai), powered by the [NaN gateway](https://nan.builders) (OpenAI-compatible). The application and databases run locally; prompts and embeddings go to the NaN gateway, and live weather requests go to wttr.in.
 
 ## Quickstart
 
-1. Paste your NaN API key into `.env` (already created, just replace the placeholder):
+Use Node 24 (see `.node-version`) and pnpm 12.14.0. The core scripts work on macOS, Linux, and Windows; examples below use a POSIX shell. In PowerShell, set environment variables with `$env:NAME="value"` before running a command. Portless is optional.
+
+1. Install dependencies and create your environment file:
+   ```bash
+   pnpm install --frozen-lockfile
+   cp .env.example .env
+   ```
+   On PowerShell, use `Copy-Item .env.example .env`. Paste your NaN API key into `.env`:
    ```
    OPENAI_API_KEY=<your-nan-key>
    OPENAI_BASE_URL=https://api.nan.builders/v1
    ```
-2. Start the dev server + Studio:
+2. Check setup without making API calls:
+   ```bash
+   pnpm doctor
+   pnpm typecheck
+   pnpm verify
+   ```
+3. Start the dev server + Studio:
    ```bash
    pnpm dev
    ```
-3. Open **http://localhost:4111**, pick **L01 · Weather Agent**, and chat. Ask *"What's the weather in Madrid?"* to watch it call the tool.
+4. Open **http://localhost:4111**, pick **L01 · Weather Agent**, and chat. Ask *"What's the weather in Madrid?"* to watch it call the tool.
 
 Hot reload is on — edit anything under `src/mastra/` and the server restarts itself.
 
@@ -29,11 +42,13 @@ The repo is organised as a curriculum: one lesson = one subject = one slug. Star
 | `pnpm dev:portless` | Same, behind [portless](https://portless.sh) at `https://mastra-playground.localhost` — no port numbers, no collisions |
 | `pnpm lessons` | List the curriculum with each guide's status |
 | `pnpm lesson <NN>` | Run one lesson's headless demo, with only that lesson mounted |
+| `pnpm doctor` | Check setup without displaying credentials or calling APIs |
+| `pnpm verify` | Model-free regression checks for contracts, fixtures, and lesson isolation |
+| `pnpm rag <chunk|ingest|query|ask>` | Inspect RAG stages separately; only chunk is API-free |
 | `pnpm typecheck` | Type-check everything, then verify the lesson structure |
 | `pnpm lessons:check` | Verify lesson invariants (mirrored folders, front-matter, imports) |
 | `pnpm build` | Production build (Hono server in `.mastra/output`) |
 | `pnpm start` | Run the production build |
-| `pnpm mcp:example` | Run the MCP stdio server demo (lesson 08's baseline) |
 
 `MASTRA_LESSONS=01,04 pnpm dev` mounts only some lessons.
 
@@ -55,7 +70,7 @@ pnpm dev:portless         # -> https://mastra-playground.localhost
 
 ```
 docs/learn/
-  README.md                 ← curriculum index; status per lesson
+  README.md                 ← curriculum index; learner status is in each guide
   01-agent-loop/README.md   ← the guide for lesson 01
   02-tools/README.md        ← ...one folder per subject
 src/mastra/
@@ -63,23 +78,24 @@ src/mastra/
   shared/
     storage.ts              ← LibSQL store used by every lesson
     editor.ts               ← Studio Editor (agent CMS)
-    models.ts               ← NaN provider + model instances
+    models.ts               ← NaN chat configurations + embedding instance
   lessons/
     registry.ts             ← Lesson type, MASTRA_LESSONS filter, merge
     index.ts                ← imports every lesson in order
     01-agent-loop/          ← index.ts (registry) + weather agent + tool
-    02-tools/ ...           ← stubs until their lesson is written
+    02-tools/ ...           ← implemented baselines through 08; 09–12 are planned
 scripts/
   lesson.ts                 ← pnpm lesson / pnpm lessons
   check-lessons.ts          ← pnpm lessons:check
-  mcp-server-example.ts     ← expose tools as an MCP server
 ```
 
 To add a lesson: create `docs/learn/<slug>/README.md` and `src/mastra/lessons/<slug>/index.ts`, then import it in `src/mastra/lessons/index.ts`. The full contract is in [`AGENTS.md`](AGENTS.md), and `pnpm lessons:check` enforces it.
 
 ## NaN models
 
-`src/mastra/shared/models.ts` builds an OpenAI-compatible provider pointed at `OPENAI_BASE_URL` and exports model instances (`models.default`, `models.cheap`, `models.embedding`). Pass the instance straight to an agent:
+These are project defaults, not a permanent provider capability guarantee. Check the [gateway documentation](https://nan.builders) when changing models; validate tool-calling and structured-output behavior with the lesson experiments.
+
+`src/mastra/shared/models.ts` exports Mastra-native chat configurations (`api: 'chat'`) and an AI SDK embedding instance pointed at `OPENAI_BASE_URL` (`models.default`, `models.cheap`, `models.embedding`). Pass the instance straight to an agent:
 
 ```ts
 model: models.default
@@ -97,9 +113,17 @@ Why not the router string `openai/<model>`? Mastra's router sends `openai/*` to 
 
 ⚠️ qwen*/gemma* chat models use XML-style tool calling — avoid them for agents with tools.
 
+## Classroom workflow
+
+Use `WEATHER_MODE=fixture pnpm dev` for fictional, deterministic weather. `WEATHER_MODE=timeout` and `WEATHER_MODE=malformed` exercise failures without calling wttr.in. The default `live` mode uses a 10-second timeout and propagates cancellation. Agent runs still use NaN quota in every mode.
+
+Stop Studio before running `pnpm lesson NN`; restart it afterward to inspect saved traces. Each CLI run shuts down storage and tracing. Lessons 01–03 use fresh threads by default; supply `LESSON_THREAD` to deliberately replay history. `LESSON_PROMPT` changes the single-question demos (01–03, 07–08); lessons 04–06 have multi-turn/workflow inputs described in their guides.
+
+See [project tooling](docs/tooling.md) for optional client, evaluation, MCP Inspector, and authoring skills. Follow [the curriculum](docs/learn/README.md) for objectives and experiment worksheets. Draft availability means revised teaching material awaits a human Studio checklist; it does not change learner progress.
+
 ## Notes
 
-- **Storage**: `mastra-playground.db` (LibSQL/SQLite) and `mastra-observability.duckdb` sit at the repo root and hold memory, vectors, workflow state, and traces. Both are addressed by absolute path (`src/mastra/shared/local-paths.ts`) so the dev server and the lesson scripts open the same files — delete them to reset everything.
+- **Storage**: `mastra-playground.db` (LibSQL/SQLite) and `mastra-observability.duckdb` sit at the repo root and hold memory, vectors, workflow state, and traces. Both are addressed by absolute path (`src/mastra/shared/local-paths.ts`) so the dev server and the lesson scripts open the same files — stop Studio and all CLI processes before deleting them to reset everything. Run CLI demos while Studio is stopped, then restart Studio to inspect persisted traces; DuckDB has a single writable process owner.
 - **One embedder**: `models.embedding` (NaN's `qwen3-embedding`, 4096 dims) is the only embedding model in the repo, used by semantic recall and by lesson 07's index. Vectors from two different models are not comparable, so an index built with one cannot be queried with another.
 - **TypeScript**: pinned to v6 (the Mastra CLI's tooling doesn't support v7 yet). Do not upgrade `typescript` past 6 for now.
 - **Docs**: https://mastra.ai/en/docs — the model catalog is at https://mastra.ai/models

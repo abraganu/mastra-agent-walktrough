@@ -1,3 +1,4 @@
+import { requireModelEnvironment } from './shared/environment';
 import { Mastra } from '@mastra/core';
 import { MastraStorageExporter, Observability } from '@mastra/observability';
 import { lessons } from './lessons';
@@ -14,8 +15,10 @@ import { vector } from './shared/vector';
 //
 // Narrow the instance to a few lessons with:
 //   MASTRA_LESSONS=01,04 pnpm dev
+requireModelEnvironment();
+
 export const mastra = new Mastra({
-  ...mergeLessons(activeLessons(lessons)),
+  ...mergeLessons(await Promise.all(activeLessons(lessons).map((lesson) => lesson.load()))),
 
   // Local file-backed storage (LibSQL/SQLite) for memory, workflow state, and
   // evals; its observability domain (traces, logs, metrics) lives in DuckDB.

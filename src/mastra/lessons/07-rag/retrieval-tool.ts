@@ -3,7 +3,7 @@ import { embed } from 'ai';
 import { z } from 'zod';
 import { models } from '../../shared/models';
 import { vector } from '../../shared/vector';
-import { HANDBOOK_INDEX } from './ingest';
+import { HANDBOOK_INDEX, HANDBOOK_VERSION } from './ingest';
 
 // Lesson 07 subject: RAG — retrieval is a function first and a tool second.
 // Guide: docs/learn/07-rag/README.md
@@ -36,6 +36,10 @@ export async function searchChunks(question: string, topK = 3): Promise<Handbook
     queryVector: embedding,
     topK,
   });
+
+  if (results.some((result) => result.metadata?.corpusVersion !== HANDBOOK_VERSION)) {
+    throw new Error('Handbook index is stale. Run pnpm rag ingest with the current corpus and embedding model.');
+  }
 
   // Metadata is `Record<string, any>` coming out of the store, so it is
   // narrowed here rather than trusted. A chunk without a source is still

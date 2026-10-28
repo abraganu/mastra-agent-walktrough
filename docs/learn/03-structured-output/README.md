@@ -2,6 +2,7 @@
 lesson: 3
 subject: structured-output
 status: todo
+availability: draft
 prereqs: [1, 2]
 primitives: [structuredOutput, defaultOptions, maxSteps, stream]
 code: src/mastra/lessons/03-structured-output
@@ -9,8 +10,15 @@ docs:
   - https://mastra.ai/docs/agents/structured-output
   - https://mastra.ai/reference/agents/generate
   - https://mastra.ai/reference/streaming/agents/stream
-updated: 2026-10-26
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Separate structural validity, truth and completion. **Time and cost:** 30 minutes; agent runs use quota; `pnpm verify` is API-free.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 03` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 03 · Structured output and generation options
 
@@ -56,10 +64,10 @@ Two things worth noticing before you run anything:
 
 Read top to bottom:
 
-- `../../src/mastra/lessons/03-structured-output/weather-tool.ts` — the same weather tool as lessons 01–02 (lessons cannot import each other), namespaced `l03-`. Its return string is *everything* the report can be built from — remember that when the exercise asks for more.
-- `../../src/mastra/lessons/03-structured-output/report-schema.ts` — the starting schema: three fields, all satisfiable from the tool. `WeatherReport` is its inferred type.
-- `../../src/mastra/lessons/03-structured-output/report-agent.ts` — `L03 · Report Agent`; instructions say to fill requested shapes with fetched values.
-- `../../src/mastra/lessons/03-structured-output/index.ts` — the demo passes `structuredOutput` at call level.
+- [weather-tool.ts](../../../src/mastra/lessons/03-structured-output/weather-tool.ts) — the same weather tool as lessons 01–02 (lessons cannot import each other), namespaced `l03-`. Its return string is *everything* the report can be built from — remember that when the exercise asks for more.
+- [report-schema.ts](../../../src/mastra/lessons/03-structured-output/report-schema.ts) — the starting schema: three fields, all satisfiable from the tool. `WeatherReport` is its inferred type.
+- [report-agent.ts](../../../src/mastra/lessons/03-structured-output/report-agent.ts) — `L03 · Report Agent`; instructions say to fill requested shapes with fetched values.
+- [index.ts](../../../src/mastra/lessons/03-structured-output/index.ts) — the demo passes `structuredOutput` at call level.
 
 ## Walkthrough A — headless
 
@@ -74,7 +82,7 @@ Same loop as lesson 02, but the printed answer is `response.object` — a valida
 `pnpm dev`, then **Agents → L03 · Report Agent**, chat: *What's the weather in Madrid? Reply as a structured report.* Open the run in **Observability**.
 
 - Same span shape as lesson 02: LLM call → tool call → LLM call. Structured output adds no spans; it rides in the model calls.
-- With `jsonPromptInjection: 'system'`, find the injected schema instructions in the LLM calls' system message — the schema reached the model as text, with no `response_format` in the request. Then flip `'system'` to `'auto'` and re-run: the gateway rejects the run with a 400 whose message spells out its serving policy (`json_schema` only on tool-less, non-streamed requests for this model). Read it — that error is the gateway telling you its constraints. Set `'system'` back.
+- With `jsonPromptInjection: 'system'`, find the injected schema instructions in the LLM calls' system message — the schema reached the model as text, with no `response_format` in the request. Then flip the agent default to `'auto'` and re-run in Studio (CLI call options override defaults): the gateway rejects the run with a 400 whose message spells out its serving policy (`json_schema` only on tool-less, non-streamed requests for this model). Read it — that error is the gateway telling you its constraints. Set `'system'` back.
 - The final LLM span's output ends in the schema's JSON, not plain prose. That is the visible difference from lesson 02's trace.
 
 ## Exercise — confidence, defaults, and a cutoff
@@ -109,13 +117,14 @@ structuredOutput: {
     temperatureC: 0,
     conditions: 'unavailable',
     pressureMbar: -1,
+    confidence: 'low',
   },
 },
 ```
 
-Re-run and check `response.usedFallbackValue` — it is `true`, which is how your application distinguishes a substituted object from a real answer. Remove `pressureMbar` and the fallback when done.
+Re-run and inspect `response.usedFallbackValue`. It is true only if validation failed and fallback was used; a fabricated number may still validate. For a deterministic model-free failure, run `pnpm verify`: it distinguishes schema validity from truth without relying on model compliance. Remove `pressureMbar` and the fallback when done.
 
-**3. Set defaults once.** Move the whole schema into the agent:
+**3. Compare defaults with call overrides.** The baseline now puts the schema in the agent so Studio and CLI agree. Inspect these defaults, then remove the redundant call-level schema from the demo:
 
 ```ts
 // report-agent.ts
@@ -194,3 +203,26 @@ _Write what you learned here — three to five lines, in your own words._
 - Structured output — https://mastra.ai/docs/agents/structured-output
 - `generate()` — https://mastra.ai/reference/agents/generate
 - `stream()` — https://mastra.ai/reference/streaming/agents/stream
+
+
+## Experiment worksheet
+
+| Case | Schema validity | Factual evidence |
+| --- | --- | --- |
+| Fixture temperature 21, reported 21 | Valid | Matches tool |
+| Reported temperature 999 | Can be valid | Contradicts tool |
+| Missing temperature | Invalid | Cannot be consumed as the report |
+
+Check all three locally with `pnpm verify`, then compare an agent run. A `confidence: high` field is a self-report, not measured calibration. Prefer recording source/tool availability and checking claims against that source. Test a one-step cutoff and inspect whether the run actually completed.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Remove confidence/pressure experiment fields and their fallback; restore agent defaults with `maxSteps: 5` and `jsonPromptInjection: system`. Start a fresh thread.

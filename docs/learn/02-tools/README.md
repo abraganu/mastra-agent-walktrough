@@ -2,14 +2,22 @@
 lesson: 2
 subject: tools
 status: todo
+availability: draft
 prereqs: [1]
 primitives: [createTool, inputSchema, outputSchema]
 code: src/mastra/lessons/02-tools
 docs:
   - https://mastra.ai/docs/agents/tools
   - https://mastra.ai/reference/tools/create-tool
-updated: 2026-10-26
+updated: 2026-10-28
 ---
+
+## Lab setup
+
+**Objective:** Design tool contracts and understand failure recovery. **Time and cost:** 30–45 minutes; `WEATHER_MODE=fixture|timeout|malformed` changes weather only; agent generation still uses quota.
+
+Start from this lesson's committed/reference baseline. Save a local copy before editing exercise variants; later lessons are isolated and do not inherit these edits. Stop Studio before `pnpm lesson 02` because both use the same writable DuckDB file, then restart it to inspect persisted traces. Use fictional data.
+
 
 # 02 · Tools
 
@@ -55,9 +63,9 @@ Two things worth noticing before you run anything:
 
 Read top to bottom:
 
-- `../../src/mastra/lessons/02-tools/weather-tool.ts` — the weather tool, `l02-get-weather`. Same shape as lesson 01's (lessons cannot import each other), but this copy is the one you will make stricter, break, and flip between failure modes.
-- `../../src/mastra/lessons/02-tools/tools-agent.ts` — one agent, one tool. Note the `tools` record is keyed by the tool's `id`.
-- `../../src/mastra/lessons/02-tools/index.ts` — registers both, plus the headless demo.
+- [weather-tool.ts](../../../src/mastra/lessons/02-tools/weather-tool.ts) — the weather tool, `l02-get-weather`. Same shape as lesson 01's (lessons cannot import each other), but this copy is the one you will make stricter, break, and flip between failure modes.
+- [tools-agent.ts](../../../src/mastra/lessons/02-tools/tools-agent.ts) — one agent, one tool. Note the `tools` record is keyed by the tool's `id`.
+- [index.ts](../../../src/mastra/lessons/02-tools/index.ts) — registers both, plus the headless demo.
 
 ## Walkthrough A — headless
 
@@ -159,10 +167,10 @@ What made the model choose correctly? Compare the two descriptions and the share
 Do these one at a time, and note where each shows up in the trace:
 
 1. **Strict input.** Change the weather tool's `inputSchema` to an enum — `location: z.enum(['Madrid', 'Austin'])` — and ask about Barcelona. Validation fails before `execute` runs; the model sees the failure and may retry. Confirm in the trace that `execute` never ran.
-2. **Unrecoverable failure.** In the weather tool's `catch`, rethrow (`throw error`) instead of returning the error string. Ask about a city wttr.in doesn't know, and compare with walkthrough A: one mode let the model explain itself; this one doesn't get the chance. Note what the tool span shows and what you get back.
+2. **Failed tool call.** In the weather tool's `catch`, rethrow (`throw error`) instead of returning the error string. Ask about a city wttr.in doesn't know, and compare with walkthrough A: both can allow another model turn, but only the thrown exception is recorded as a failed tool call. Cancellation and authorization failures have different termination behavior. Note what the tool span shows and what you get back.
 3. **Broken output.** Delete the `output` key from the weather tool's return value. `tsc` refuses — that is your first validator, and it only covers code paths you control. Silence it with a cast (`as unknown as { output: string }`) to reach the second: Mastra's runtime validation against `outputSchema`, which is what guards the model's view. Note the warning in the logs and what the model receives instead of the result. Side-effecting tools (an order already placed) don't want this retry — that is what `outputValidation: 'warn'` is for.
 
-Revert everything when you are done — lesson 03 mounts on top of this code.
+Revert everything when you are done — lesson 03 uses its own isolated baseline; edits here do not carry forward.
 
 ## Checkpoint
 
@@ -171,7 +179,7 @@ Run these yourself; nobody can verify a trace for you.
 - [ ] `pnpm lesson 02` prints an answer and a usage block.
 - [ ] Two tools compete for one prompt, and you can point at the description/schema lines that decided the winner.
 - [ ] A schema violation is visible in the trace, and `execute` never ran.
-- [ ] A recoverable failure produced a useful answer; the thrown error did not.
+- [ ] You compared successful error-shaped data with a thrown tool error and inspected whether the model recovered in each case.
 - [ ] You changed tool choice by editing a description only.
 - [ ] You know what the trace calls each tool, and why (object key vs `id`).
 
@@ -188,3 +196,22 @@ _Write what you learned here — three to five lines, in your own words._
 - Tools — https://mastra.ai/docs/agents/tools
 - `createTool` — https://mastra.ai/reference/tools/create-tool
 - Agents overview — https://mastra.ai/docs/agents/overview
+
+
+## Experiment worksheet
+
+Run the same weather prompt with each weather mode (restart Studio between modes). Predict which layer fails, whether the tool call is marked failed, and whether the model recovers. Compare returning error-shaped data with throwing. Test an already-aborted signal using `pnpm verify`.
+
+For a transfer task, create a lesson-local deterministic catalog lookup with two fictional products and a strict ID schema. Compare weather and catalog tool choice on five prompts. Make no external write. Explain why retrying a read is different from retrying a purchase and how an idempotency key would prevent a duplicated purchase.
+
+Record your evidence here; leave learner `status` unchanged until you complete the Studio checklist yourself.
+
+| Case | Prediction | Observed tools/model rounds | Tokens/latency | Evidence or failure | Explanation |
+| --- | --- | --- | --- | --- | --- |
+| Baseline | | | | | |
+| Changed input | | | | | |
+| Failure | | | | | |
+
+## Reset this lab
+
+Remove the added catalog tool and restore the weather wrapper. Lesson 03 has its own independent implementation.

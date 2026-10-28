@@ -6,7 +6,7 @@ import { weatherTool } from './weather-tool';
 // Lesson 01 subject: the agent execution loop, observed through a trace.
 // Guide: docs/learn/01-agent-loop/README.md
 //
-// `models.default` is a model instance from shared/models.ts, not a router
+// `models.default` is a chat configuration from shared/models.ts, not a router
 // string — see that file for why.
 // Docs: https://mastra.ai/docs/agents/overview
 export const weatherAgent = new Agent({

@@ -11,7 +11,9 @@
  * Run from the project root (the npm script does).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
+import { isAllowedLessonImport, importsOfSource, lessonDeclarations, primitivePrefixErrors } from './lesson-structure';
+import { lessons } from '../src/mastra/lessons';
 import { asList, asString, parseFrontMatter } from './front-matter';
 
 const ROOT = process.cwd();
@@ -22,7 +24,7 @@ const SHARED_DIR = join(LESSONS_DIR, '..', 'shared');
 
 const SLUG_PATTERN = /^(\d{2})-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
 const STATUSES = new Set(['todo', 'in-progress', 'done']);
-const REQUIRED_KEYS = ['lesson', 'subject', 'status', 'prereqs', 'primitives', 'docs', 'updated'];
+const REQUIRED_KEYS = ['lesson', 'subject', 'status', 'prereqs', 'primitives', 'docs', 'updated', 'code', 'availability'];
 
 const errors: string[] = [];
 
@@ -52,21 +54,9 @@ function tsFiles(path: string): string[] {
 }
 
 function importsOf(file: string): string[] {
-  const source = readFileSync(file, 'utf8');
-  const specifiers: string[] = [];
-  const patterns = [/from\s+['"]([^'"]+)['"]/g, /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g];
-  for (const pattern of patterns) {
-    for (const match of source.matchAll(pattern)) {
-      if (match[1]) specifiers.push(match[1]);
-    }
-  }
-  return specifiers;
+  return importsOfSource(readFileSync(file, 'utf8'));
 }
 
-function isInside(parent: string, child: string): boolean {
-  const rel = relative(parent, child);
-  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
-}
 
 const guideSlugs = directories(GUIDES_DIR);
 const codeSlugs = directories(LESSONS_DIR).filter((entry) => entry !== 'node_modules');
@@ -88,6 +78,7 @@ for (const slug of guideSlugs) {
 
   const number = Number.parseInt(match[1] as string, 10);
   const subject = match[2] as string;
+  if (lessonNumbers.has(number)) fail(`Duplicate lesson number: ${number}`);
   lessonNumbers.add(number);
 
   if (!existsSync(guidePath)) {
@@ -115,11 +106,14 @@ for (const slug of guideSlugs) {
     fail(`docs/learn/${slug}/README.md: subject is "${declaredSubject}", folder says "${subject}"`);
   }
 
+  if (!['ready', 'draft', 'planned'].includes(asString(frontMatter.availability))) fail(`${slug}: invalid availability`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asString(frontMatter.updated))) fail(`${slug}: updated must be YYYY-MM-DD`);
   const status = asString(frontMatter.status);
   if (!STATUSES.has(status)) {
     fail(`docs/learn/${slug}/README.md: status "${status}" must be one of ${[...STATUSES].join(', ')}`);
   }
 
+  if (asList(frontMatter.docs).some((url) => !/^https:\/\/mastra\.ai\//.test(url))) fail(`${slug}: docs must use canonical Mastra HTTPS URLs`);
   if (asList(frontMatter.docs).length === 0) {
     fail(`docs/learn/${slug}/README.md: list at least one mastra.ai doc URL under "docs"`);
   }
@@ -136,7 +130,7 @@ for (const slug of guideSlugs) {
     fail(`docs/learn/${slug}/README.md: code is "${declaredCode}", expected "src/mastra/lessons/${slug}"`);
   }
 
-  if (!lessonsIndex.includes(`'./${slug}'`)) {
+  if (!importsOfSource(lessonsIndex).includes(`./${slug}`) || lessons.filter((lesson) => lesson.id === slug).length !== 1) {
     fail(`src/mastra/lessons/index.ts: "${slug}" is not imported`);
   }
 }
@@ -150,7 +144,7 @@ for (const slug of guideSlugs) {
 
   const own = Number.parseInt(slug.slice(0, 2), 10);
   for (const prereq of asList(frontMatter.prereqs)) {
-    const value = Number.parseInt(prereq, 10);
+    const value = /^\d+$/.test(prereq) ? Number(prereq) : NaN;
     if (Number.isNaN(value)) {
       fail(`docs/learn/${slug}/README.md: prereq "${prereq}" is not a lesson number`);
       continue;
@@ -174,20 +168,23 @@ for (const slug of codeSlugs) {
 // 5. no cross-lesson imports
 for (const slug of codeSlugs) {
   const lessonDir = join(LESSONS_DIR, slug);
-  if (!existsSync(lessonDir)) continue;
+  if (!existsSync(join(lessonDir, 'index.ts')) || !SLUG_PATTERN.test(slug)) continue;
 
+  const declarations = lessonDeclarations(readFileSync(join(lessonDir, 'index.ts'), 'utf8'));
+  const declared = declarations[0];
+  if (declarations.length !== 1 || declared?.id !== slug || declared?.number !== Number(slug.slice(0, 2)) || declared?.subject !== slug.slice(3)) {
+    fail(`${slug}: index.ts must export one matching literal lesson descriptor`);
+  }
   for (const file of tsFiles(lessonDir)) {
+    if (/[/\\]agents[/\\].+[/\\]config\.ts$/.test(file)) fail(`${file}: discovered agents are prohibited`);
+    for (const error of primitivePrefixErrors(readFileSync(file, 'utf8'), `l${slug.slice(0, 2)}-`)) fail(`${relative(ROOT, file)}: ${error}`);
     for (const specifier of importsOf(file)) {
-      if (!specifier.startsWith('.')) continue;
+      if (!specifier.startsWith('.') && !isAbsolute(specifier)) continue;
 
       const target = resolve(dirname(file), specifier);
       // Allowed: the lesson's own files, src/mastra/shared/, and the shared
       // contract files that sit directly in src/mastra/lessons/ (registry.ts).
-      if (
-        isInside(lessonDir, target) ||
-        isInside(SHARED_DIR, target) ||
-        dirname(target) === LESSONS_DIR
-      ) {
+      if (isAllowedLessonImport(lessonDir, SHARED_DIR, LESSONS_DIR, target)) {
         continue;
       }
 
@@ -197,6 +194,11 @@ for (const slug of codeSlugs) {
       );
     }
   }
+}
+
+// Discovery is prohibited anywhere under src/mastra, including outside lessons.
+for (const file of tsFiles(join(ROOT, 'src/mastra'))) {
+  if (/[/\\]agents[/\\].+[/\\]config\.ts$/.test(file)) fail(`${relative(ROOT, file)}: file-based agent discovery is prohibited`);
 }
 
 // Report
